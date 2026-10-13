@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-from src.processing.read_app_matches import fetch_app_matches
 
 from pathlib import Path
 import sys
