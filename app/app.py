@@ -93,6 +93,298 @@ div[data-testid="stMetric"] {
 )
 
 
+# ==========================================
+# COMPACT HEADER & FULL-WIDTH NAVIGATION
+# ==========================================
+
+st.html("""
+<style>
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.sal-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    column-gap: 2rem;
+    row-gap: 0.5rem;
+
+    padding: 0.5rem 0 1.25rem;
+    margin-bottom: 1rem;
+
+    border-bottom: 1px solid #E2E8F0;
+}
+
+.sal-topbar .sal-brand {
+    font-size: clamp(1.8rem, 2.8vw, 2.65rem) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.05em;
+    line-height: 1.15 !important;
+
+    color: #0F172A !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.sal-topbar .sal-brand span {
+    color: #2563EB;
+}
+
+.sal-topbar .sal-tagline {
+    font-size: 0.95rem;
+    font-weight: 450;
+    line-height: 1.4;
+    color: #64748B;
+
+    margin: 0;
+    text-align: right;
+}
+
+
+/* ========================================
+   FULL-WIDTH NAVIGATION
+   ======================================== */
+
+.stTabs [data-baseweb="tab-list"] {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    border-bottom: none;
+}
+
+.stTabs [data-baseweb="tab"] {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 52px;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 0 12px;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+
+    background-color: #FFFFFF;
+    color: #475569;
+    font-weight: 600;
+
+    transition: background-color 0.15s ease;
+}
+
+/* Selected tab */
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background-color: #EFF6FF;
+    border-color: #93C5FD;
+    color: #1D4ED8;
+}
+
+/* Hover */
+
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: #F1F5F9;
+}
+
+/* Hide default tab underline */
+
+.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-border"] {
+    display: none;
+}
+
+/* Center the text */
+
+.stTabs [data-baseweb="tab"] p {
+    width: 100%;
+    text-align: center;
+    font-weight: 600;
+}
+
+
+/* ========================================
+   MOBILE RESPONSIVENESS
+   ======================================== */
+
+@media (max-width: 650px) {
+
+    .sal-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+        padding-bottom: 1rem;
+    }
+
+    .sal-topbar .sal-brand {
+        font-size: 1.75rem !important;
+    }
+
+    .sal-topbar .sal-tagline {
+        font-size: 0.85rem;
+        text-align: left;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 5px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        min-height: 50px;
+        height: auto;
+        padding: 8px 4px;
+    }
+
+    .stTabs [data-baseweb="tab"] p {
+        font-size: 0.75rem;
+        line-height: 1.2;
+        white-space: normal;
+    }
+
+}
+
+</style>
+""")
+
+
+# ==========================================
+# MAIN NAVIGATION - FIXED STYLING
+# ==========================================
+
+st.html("""
+<style>
+
+/* Equal-width navigation */
+.st-key-main_nav [role="tablist"] {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    gap: 12px !important;
+    border-bottom: none !important;
+}
+
+/* Navigation buttons */
+.st-key-main_nav [role="tab"] {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 54px !important;
+    justify-content: center !important;
+    align-items: center !important;
+
+    padding: 12px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 12px !important;
+
+    color: #475569 !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+}
+
+/* Active navigation */
+.st-key-main_nav [role="tab"][aria-selected="true"] {
+    background: #EFF6FF !important;
+    border-color: #93C5FD !important;
+    color: #2563EB !important;
+}
+
+/* Text inside tabs */
+.st-key-main_nav [role="tab"] p {
+    margin: 0 !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    white-space: normal !important;
+}
+
+/* Remove default underline */
+.st-key-main_nav [data-baseweb="tab-highlight"],
+.st-key-main_nav [data-baseweb="tab-border"] {
+    display: none !important;
+}
+
+/* Hover */
+.st-key-main_nav [role="tab"]:hover {
+    background: #F1F5F9 !important;
+}
+
+/* Mobile */
+@media (max-width: 650px) {
+    .st-key-main_nav [role="tablist"] {
+        gap: 6px !important;
+    }
+
+    .st-key-main_nav [role="tab"] {
+        padding: 8px 4px !important;
+        min-height: 52px !important;
+    }
+
+    .st-key-main_nav [role="tab"] p {
+        font-size: 12px !important;
+        line-height: 1.3 !important;
+    }
+}
+
+/* Right-align footer methodology button */
+.st-key-sal_methodology {
+    margin-left: auto !important;
+    align-self: flex-end !important;
+    width: fit-content !important;
+}
+
+</style>
+""")
+
+
+# ==========================================
+# SEAMLESS NAVIGATION
+# ==========================================
+
+st.html("""
+<style>
+
+/* Join all three tabs into one navigation bar */
+.st-key-main_nav [role="tablist"] {
+    gap: 0 !important;
+    border: 1px solid #DCE4ED !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+}
+
+/* Remove individual button borders and corners */
+.st-key-main_nav [role="tab"] {
+    border: none !important;
+    border-right: 1px solid #DCE4ED !important;
+    border-radius: 0 !important;
+    background: #FFFFFF !important;
+}
+
+/* No divider after the final tab */
+.st-key-main_nav [role="tab"]:last-of-type {
+    border-right: none !important;
+}
+
+/* Selected tab */
+.st-key-main_nav [role="tab"][aria-selected="true"] {
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+    box-shadow: inset 0 -3px 0 #2563EB !important;
+}
+
+/* Keep tabs joined on mobile too */
+@media (max-width: 650px) {
+    .st-key-main_nav [role="tablist"] {
+        gap: 0 !important;
+    }
+}
+
+</style>
+""")
+
+
 
 # ==========================================
 # DATA
@@ -317,30 +609,35 @@ def show_recent_form(team_results):
 matches = load_matches()
 all_results = build_team_results(matches)
 
+
 # ==========================================
 # BRAND HEADER
 # ==========================================
 
-st.markdown(
-    '<div class="sal-hero">'
-    '<div class="sal-eyebrow">SPORTS / DATA / INTELLIGENCE</div>'
-    '<h1>Sports Analytics Lab<span>.</span></h1>'
-    '<div class="sal-subtitle">'
-    'Beyond results. Understand performance.'
-    '</div>'
-    '</div>',
-    unsafe_allow_html=True,
-)
+st.html("""
+<div class="sal-topbar">
+    <h1 class="sal-brand">
+        Sports Analytics Lab<span>.</span>
+    </h1>
+    <p class="sal-tagline">
+        Beyond results. Understand performance.
+    </p>
+</div>
+""")
+
 
 # ==========================================
 # MAIN NAVIGATION
 # ==========================================
 
-league_tab, team_tab, compare_tab = st.tabs([
-    "League Overview",
-    "Team Explorer",
-    "Comparison Lab",
-])
+league_tab, team_tab, compare_tab = st.tabs(
+    [
+        "League Overview",
+        "Team Explorer",
+        "Comparison Lab",
+    ],
+    key="main_nav",
+)
 
 # ==========================================
 # TAB 1 — LEAGUE OVERVIEW
@@ -857,6 +1154,7 @@ with footer_right:
     with st.popover(
         "Data & Methodology",
         type="tertiary",
+        key="sal_methodology",
     ):
         st.markdown(
             """
