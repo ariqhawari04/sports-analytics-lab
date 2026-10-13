@@ -1,77 +1,129 @@
 
 from pathlib import Path
-import re
+import sys
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-import sys
-
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.analysis.performance import (
-    get_cross_season_comparison,
-    get_rolling_form,
-    get_season_insights,
-)
+from src.analysis.performance import get_cross_season_comparison
 
 RAW_DIR = ROOT / "data" / "raw"
-
 SEASONS = ["2024-25", "2025-26", "2026-27"]
 
+BLUE = "#2563EB"
+GREEN = "#16A34A"
+RED = "#DC2626"
+SLATE = "#64748B"
+PALETTE = [BLUE, GREEN, "#F59E0B", "#8B5CF6", RED]
 
 st.set_page_config(
     page_title="Sports Analytics Lab",
     page_icon="⚽",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
+
+st.markdown(
+    """
+<style>
+.block-container {
+    max-width: 1750px !important;
+    padding: 2rem 2.5rem 3.5rem !important;
+}
+
+div[data-testid="stMetric"] {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+}
+
+.sal-hero {
+    padding: 1.3rem 0 1.8rem;
+}
+
+.sal-eyebrow {
+    color: #2563EB;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.65rem;
+}
+
+.sal-hero h1 {
+    color: #0F172A;
+    font-size: clamp(2.5rem, 4.5vw, 4.2rem);
+    font-weight: 800;
+    letter-spacing: -0.055em;
+    line-height: 1.12;
+    margin: 0;
+}
+
+.sal-hero h1 span {
+    color: #2563EB;
+}
+
+.sal-subtitle {
+    color: #64748B;
+    font-size: 1.15rem;
+    margin-top: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .block-container {
+        padding: 1.4rem 1rem 2rem !important;
+    }
+}
+</style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+
+# ==========================================
+# DATA
+# ==========================================
 
 @st.cache_data
 def load_matches():
     frames = []
 
     for season in SEASONS:
-        filename = f"fbref_schedule_{season.replace('-', '_')}.csv"
-        path = RAW_DIR / filename
-
-        df = pd.read_csv(path)
-
-        # Add the season explicitly
+        filename = (
+            f"fbref_schedule_{season.replace('-', '_')}.csv"
+        )
+        df = pd.read_csv(RAW_DIR / filename)
         df["season_label"] = season
-
         frames.append(df)
 
     matches = pd.concat(frames, ignore_index=True)
 
-    # Extract goals from scores such as "2–1" or "2-1"
-    score_parts = matches["score"].astype("string").str.extract(
+    scores = matches["score"].astype("string").str.extract(
         r"^\s*(\d+)\s*[-–—]\s*(\d+)\s*$"
     )
 
     matches["home_goals"] = pd.to_numeric(
-        score_parts[0], errors="coerce"
+        scores[0], errors="coerce"
     )
     matches["away_goals"] = pd.to_numeric(
-        score_parts[1], errors="coerce"
+        scores[1], errors="coerce"
     )
-
     matches["match_date"] = pd.to_datetime(
         matches["date"], errors="coerce"
     )
-
     matches["matchweek"] = pd.to_numeric(
         matches["week"], errors="coerce"
     )
 
-    # Keep only completed matches
-    matches = matches.dropna(
+    return matches.dropna(
         subset=["home_goals", "away_goals", "match_date"]
     ).copy()
-
-    return matches
 
 
 def build_team_results(matches):
@@ -110,22 +162,19 @@ def build_team_results(matches):
     ] = "L"
 
     results["points"] = results["result"].map({
-        "W": 3,
-        "D": 1,
-        "L": 0,
+        "W": 3, "D": 1, "L": 0
     })
 
-    results = results.sort_values(
-        ["season", "team", "match_date", "matchweek"]
-    ).copy()
+    results = results.sort_values([
+        "season", "team", "match_date", "matchweek"
+    ]).copy()
+
+    groups = results.groupby(["season", "team"])
 
     results["cumulative_points"] = (
-        results.groupby(["season", "team"])["points"].cumsum()
+        groups["points"].cumsum()
     )
-
-    results["match_number"] = (
-        results.groupby(["season", "team"]).cumcount() + 1
-    )
+    results["match_number"] = groups.cumcount() + 1
 
     return results
 
@@ -153,430 +202,695 @@ def build_standings(results):
     ).reset_index(drop=True)
 
     table.insert(0, "Position", table.index + 1)
-
     return table
 
 
-# ==========================================
-# APP
-# ==========================================
+def style_chart(fig, height=420):
+    """Consistent light style for all Plotly charts."""
 
-st.title("⚽ Sports Analytics Lab")
-st.caption("Premier League Performance Explorer · v0.1")
+    fig.update_layout(
+        template="plotly_white",
+        height=height,
+        font=dict(
+            size=15,
+            color="#0F172A",
+            family="Arial",
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=10, r=15, t=55, b=30),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.22,
+            x=0,
+        ),
+        hovermode="x unified",
+    )
 
-st.markdown(
-    "Explore team performance, league standings, "
-    "and points progression across Premier League seasons."
-)
+    fig.update_xaxes(
+        showgrid=False,
+        linecolor="#CBD5E1",
+    )
+    fig.update_yaxes(
+        gridcolor="rgba(148,163,184,0.20)",
+        griddash="dot",
+        zeroline=False,
+        rangemode="tozero",
+    )
+
+    return fig
+
+
+def show_recent_form(team_results):
+    st.subheader("Recent Form")
+    st.caption("Your team's latest Premier League results")
+
+    window = st.segmented_control(
+        "Show",
+        options=[5, 10],
+        default=5,
+        format_func=lambda n: f"Last {n}",
+    ) or 5
+
+    recent = team_results.sort_values(
+        "match_number"
+    ).tail(window).copy()
+
+    played = len(recent)
+    points = int(recent["points"].sum())
+
+    wins = int((recent["result"] == "W").sum())
+    draws = int((recent["result"] == "D").sum())
+    losses = int((recent["result"] == "L").sum())
+
+    col1, col2 = st.columns(2)
+
+    col1.metric("Points", f"{points} / {played * 3}")
+    col2.metric(
+        "Record (W-D-L)",
+        f"{wins}-{draws}-{losses}"
+    )
+
+    st.caption("Oldest → Newest")
+
+    colors = {
+        "W": GREEN,
+        "D": SLATE,
+        "L": RED,
+    }
+
+    columns = st.columns(played, gap="small")
+
+    for col, result in zip(columns, recent["result"]):
+        color = colors[result]
+
+        with col:
+            st.markdown(
+                f'<div style="background:{color};'
+                f'color:white;text-align:center;'
+                f'border-radius:7px;padding:10px 0;'
+                f'font-size:15px;font-weight:700">'
+                f'{result}</div>',
+                unsafe_allow_html=True,
+            )
+
+    st.caption(
+        f"{points} points from {played} matches "
+        f"({points / played:.2f} per match)."
+    )
+
+    with st.expander("View match details"):
+        details = recent[[
+            "match_date", "opponent", "location",
+            "goals_for", "goals_against", "result",
+        ]].copy()
+
+        details["match_date"] = (
+            details["match_date"].dt.strftime("%d %b %Y")
+        )
+
+        st.dataframe(
+            details,
+            hide_index=True,
+            use_container_width=True,
+        )
+
+
+
+# ==========================================
+# LOAD APP DATA
+# ==========================================
 
 matches = load_matches()
 all_results = build_team_results(matches)
 
-season = st.selectbox(
-    "Select season",
-    SEASONS,
-    index=2,
-    format_func=lambda s: s.replace("-", "/"),
-)
-
-season_results = all_results[
-    all_results["season"] == season
-].copy()
-
-season_matches = matches[
-    matches["season_label"] == season
-]
-
-standings = build_standings(season_results)
-
-st.subheader("League Overview")
-
-col1, col2, col3 = st.columns(3)
-
-col1.metric("Matches played", len(season_matches))
-col2.metric("Teams", standings["team"].nunique())
-col3.metric(
-    "Latest result",
-    season_matches["match_date"].max().strftime("%d %b %Y")
-)
-
-st.dataframe(
-    standings,
-    hide_index=True,
-    use_container_width=True,
-)
-
-st.divider()
-
 # ==========================================
-# TEAM EXPLORER
+# BRAND HEADER
 # ==========================================
-
-st.subheader("Team Performance Explorer")
-
-teams = sorted(season_results["team"].unique())
-
-default_team = (
-    teams.index("Manchester Utd")
-    if "Manchester Utd" in teams
-    else 0
-)
-
-selected_team = st.selectbox(
-    "Select team",
-    teams,
-    index=default_team,
-)
-
-team_results = season_results[
-    season_results["team"] == selected_team
-].copy()
-
-team_stats = standings[
-    standings["team"] == selected_team
-].iloc[0]
-
-c1, c2, c3, c4 = st.columns(4)
-
-c1.metric("Position", f"#{int(team_stats['Position'])}")
-c2.metric("Points", int(team_stats["Pts"]))
-c3.metric("Wins", int(team_stats["W"]))
-c4.metric("Goal difference", int(team_stats["GD"]))
-
-# Points trajectory
-fig = px.line(
-    team_results,
-    x="match_number",
-    y="cumulative_points",
-    markers=True,
-    hover_data=[
-        "opponent",
-        "location",
-        "result",
-        "points",
-    ],
-    labels={
-        "match_number": "Matches played",
-        "cumulative_points": "Cumulative points",
-    },
-    title=f"{selected_team} — Points Progression",
-)
-
-fig.update_layout(
-    xaxis=dict(dtick=1),
-    yaxis=dict(rangemode="tozero"),
-    hovermode="x unified",
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-
-# ==========================================
-# CROSS-SEASON PERFORMANCE
-# ==========================================
-
-st.divider()
-st.subheader("Cross-Season Performance")
 
 st.markdown(
-    "How does this team's current points trajectory "
-    "compare with previous seasons at the same "
-    "number of matches?"
+    '<div class="sal-hero">'
+    '<div class="sal-eyebrow">SPORTS / DATA / INTELLIGENCE</div>'
+    '<h1>Sports Analytics Lab<span>.</span></h1>'
+    '<div class="sal-subtitle">'
+    'Beyond results. Understand performance.'
+    '</div>'
+    '</div>',
+    unsafe_allow_html=True,
 )
 
-available_seasons = [
-    s for s in SEASONS
-    if not all_results[
-        (all_results["team"] == selected_team)
-        & (all_results["season"] == s)
-    ].empty
-]
+# ==========================================
+# MAIN NAVIGATION
+# ==========================================
 
-if len(available_seasons) > 1:
+league_tab, team_tab, compare_tab = st.tabs([
+    "League Overview",
+    "Team Explorer",
+    "Comparison Lab",
+])
 
-    comparison, reference_matches = (
-        get_cross_season_comparison(
-            all_results,
-            team=selected_team,
-            reference_season=season,
+# ==========================================
+# TAB 1 — LEAGUE OVERVIEW
+# ==========================================
+
+with league_tab:
+    st.header("Premier League Overview")
+    st.write(
+        "Explore league standings and season performance."
+    )
+
+    filter_col, _ = st.columns([1, 3])
+
+    with filter_col:
+        league_season = st.selectbox(
+            "Season",
+            SEASONS,
+            index=2,
+            format_func=lambda s: s.replace("-", "/"),
+            key="league_season",
         )
+
+    league_matches = matches[
+        matches["season_label"] == league_season
+    ]
+
+    league_results = all_results[
+        all_results["season"] == league_season
+    ]
+
+    league_standings = build_standings(
+        league_results
     )
 
-    cross_season_fig = px.line(
-        comparison,
-        x="match_number",
-        y="cumulative_points",
-        color="season",
-        markers=True,
-        hover_data=[
-            "opponent",
-            "result",
-            "points",
-        ],
-        labels={
-            "match_number": "Matches played",
-            "cumulative_points": "Cumulative points",
-            "season": "Season",
-        },
-        title=(
-            f"{selected_team} — "
-            f"Season Trajectory Comparison"
-        ),
+    latest_date = (
+        league_matches["match_date"]
+        .max()
+        .strftime("%d %b %Y")
     )
 
-    cross_season_fig.update_layout(
-        xaxis=dict(dtick=1),
-        yaxis=dict(rangemode="tozero"),
-        hovermode="x unified",
-    )
+    c1, c2, c3 = st.columns(3)
 
-    st.plotly_chart(
-        cross_season_fig,
+    c1.metric(
+        "Completed matches",
+        len(league_matches),
+    )
+    c2.metric(
+        "Participating clubs",
+        league_standings["team"].nunique(),
+    )
+    c3.metric("Latest result", latest_date)
+
+    st.subheader("League Table")
+
+    # Prepare league table for display
+    display_standings = league_standings[[
+        "Position", "team", "MP", "W",
+        "D", "L", "GF", "GA", "GD", "Pts",
+    ]].rename(columns={"team": "Team"})
+
+    # Display league table
+    st.dataframe(
+        display_standings,
+        hide_index=True,
         use_container_width=True,
+        height=730,
     )
+
 
     st.caption(
-        f"Comparison limited to the first "
-        f"{reference_matches} completed matches "
-        f"of each available season."
+        "Standings calculated from completed matches. "
+        "Additional official tie-breakers are not applied."
+    )
+
+
+# ==========================================
+# TAB 2 — TEAM EXPLORER
+# ==========================================
+
+with team_tab:
+    st.header("Team Explorer")
+    st.write(
+        "Explore a club's performance, points progression, "
+        "and recent results."
+    )
+
+    filter1, filter2 = st.columns(2)
+
+    with filter1:
+        team_season = st.selectbox(
+            "Season",
+            SEASONS,
+            index=2,
+            format_func=lambda s: s.replace("-", "/"),
+            key="team_season",
+        )
+
+    team_season_results = all_results[
+        all_results["season"] == team_season
+    ]
+
+    team_options = sorted(
+        team_season_results["team"].unique()
+    )
+
+    default_team = (
+        team_options.index("Manchester Utd")
+        if "Manchester Utd" in team_options
+        else 0
+    )
+
+    with filter2:
+        selected_team = st.selectbox(
+            "Club",
+            team_options,
+            index=default_team,
+            key="team_club",
+        )
+
+    team_results = team_season_results[
+        team_season_results["team"] == selected_team
+    ].copy()
+
+    standings = build_standings(
+        team_season_results
+    )
+
+    team_stats = standings[
+        standings["team"] == selected_team
+    ].iloc[0]
+
+    st.subheader(selected_team)
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "League position",
+        f"#{int(team_stats['Position'])}",
+    )
+    c2.metric("Points", int(team_stats["Pts"]))
+    c3.metric("Wins", int(team_stats["W"]))
+    c4.metric(
+        "Goal difference",
+        int(team_stats["GD"]),
+    )
+
+    st.write("")
+
+    left, right = st.columns(
+        [1.5, 1],
+        gap="large",
+    )
+
+    with left:
+        st.subheader("Points Progression")
+        st.caption(
+            "Total league points earned after each match"
+        )
+
+        fig = px.line(
+            team_results,
+            x="match_number",
+            y="cumulative_points",
+            markers=True,
+            color_discrete_sequence=[BLUE],
+            hover_data=[
+                "opponent", "result", "points"
+            ],
+            labels={
+                "match_number": "Matches played",
+                "cumulative_points": "Total points",
+            },
+        )
+
+        fig.update_traces(
+            line=dict(
+                color=BLUE,
+                width=3.5,
+                shape="linear",
+            ),
+            marker=dict(
+                size=7,
+                color=BLUE,
+                line=dict(color="#F8FAFC", width=2),
+            ),
+            fill="tozeroy",
+            fillcolor="rgba(37,99,235,0.09)",
+        )
+
+        fig.update_xaxes(
+            dtick=1 if len(team_results) <= 10 else 5
+        )
+
+        st.plotly_chart(
+            style_chart(fig),
+            use_container_width=True,
+            theme=None,
+        )
+
+    with right:
+        show_recent_form(team_results)
+
+    st.divider()
+
+    with st.expander("Home vs Away Performance"):
+        location_stats = (
+            team_results
+            .groupby("location", as_index=False)
+            .agg(
+                Matches=("points", "size"),
+                Points=("points", "sum"),
+                Goals_For=("goals_for", "sum"),
+                Goals_Against=("goals_against", "sum"),
+            )
+        )
+
+        location_stats["PPG"] = (
+            location_stats["Points"]
+            / location_stats["Matches"]
+        ).round(2)
+
+        st.dataframe(
+            location_stats,
+            hide_index=True,
+            use_container_width=True,
+        )
+
+
+# ==========================================
+# TAB 3 — COMPARISON LAB
+# ==========================================
+
+with compare_tab:
+    st.header("Comparison Lab")
+    st.write(
+        "Compare club performance across seasons "
+        "or against other Premier League teams."
+    )
+
+    mode = st.segmented_control(
+        "Comparison type",
+        ["Across seasons", "Between clubs"],
+        default="Across seasons",
+        key="comparison_mode",
     )
 
     
-    # ==========================================
-    # CROSS-SEASON SUMMARY
-    # ==========================================
+    if mode == "Across seasons":
 
-    season_snapshots = (
-        comparison[
-            comparison["match_number"] == reference_matches
-        ][["season", "cumulative_points"]]
-        .sort_values("season")
-    )
+        all_teams = sorted(all_results["team"].unique())
 
-    summary_parts = []
-
-    for _, row in season_snapshots.iterrows():
-        season_name = row["season"].replace("-", "/")
-        points = int(row["cumulative_points"])
-
-        summary_parts.append(
-            f"{season_name}: {points} points"
+        default_club = (
+            all_teams.index("Manchester Utd")
+            if "Manchester Utd" in all_teams
+            else 0
         )
 
-    summary_text = " | ".join(summary_parts)
-
-    st.info(
-        f"After {reference_matches} matches — "
-        f"{selected_team}: {summary_text}"
-    )
-
-
-else:
-    st.info(
-        "Cross-season comparison is unavailable: "
-        "this club appears in only one season."
-    )
-
-
-
-# ==========================================
-# RECENT FORM & TRENDS
-# ==========================================
-
-st.divider()
-st.subheader("Recent Form & Trends")
-
-st.markdown(
-    "See how the team performed in its most recent "
-    "Premier League matches."
-)
-
-form_window = st.segmented_control(
-    "Show recent matches",
-    options=[5, 10],
-    default=5,
-    format_func=lambda n: f"Last {n} matches",
-)
-
-# Only take the most recent N matches
-recent_matches = (
-    team_results
-    .sort_values(["match_date", "match_number"])
-    .tail(form_window)
-    .copy()
-)
-
-recent_points = int(recent_matches["points"].sum())
-recent_count = len(recent_matches)
-maximum_points = recent_count * 3
-
-recent_ppg = (
-    recent_points / recent_count
-    if recent_count > 0 else 0
-)
-
-wins = int((recent_matches["result"] == "W").sum())
-draws = int((recent_matches["result"] == "D").sum())
-losses = int((recent_matches["result"] == "L").sum())
-
-c1, c2, c3 = st.columns(3)
-
-c1.metric(
-    "Points earned",
-    f"{recent_points} / {maximum_points}",
-)
-
-c2.metric(
-    "Average points per match",
-    f"{recent_ppg:.2f} / 3.00",
-)
-
-c3.metric(
-    "Record (W-D-L)",
-    f"{wins}-{draws}-{losses}",
-)
-
-
-# ==========================================
-# RECENT MATCH RESULT BADGES
-# ==========================================
-
-form_colors = {
-    "W": "#22c55e",
-    "D": "#64748b",
-    "L": "#ef4444",
-}
-
-st.markdown("**Match results (oldest → newest)**")
-
-# Create one column for each match
-result_columns = st.columns(
-    len(recent_matches),
-    gap="small"
-)
-
-for col, (_, match) in zip(
-    result_columns,
-    recent_matches.iterrows()
-):
-    result = match["result"]
-    color = form_colors[result]
-
-    with col:
-        st.markdown(
-            f'<div style="background-color:{color};'
-            f'color:white;text-align:center;'
-            f'border-radius:8px;padding:14px 0;'
-            f'font-weight:700;font-size:20px;">'
-            f'{result}</div>',
-            unsafe_allow_html=True,
+        comparison_team = st.selectbox(
+            "Choose club",
+            all_teams,
+            index=default_club,
+            key="comparison_team",
         )
 
+        available = [
+            s for s in SEASONS
+            if not all_results[
+                (all_results["team"] == comparison_team)
+                & (all_results["season"] == s)
+            ].empty
+        ]
 
-st.caption(
-    "Results shown from oldest to newest "
-    "(left to right). "
-    "W = Win, D = Draw, L = Loss."
-)
+        selected_seasons = st.multiselect(
+            "Choose seasons",
+            available,
+            default=available,
+            format_func=lambda s: s.replace("-", "/"),
+            key="cross_seasons",
+        )
 
-# Detailed match results
-with st.expander("View recent match details"):
-    st.dataframe(
-        recent_matches[
-            [
-                "match_date",
-                "opponent",
-                "location",
-                "goals_for",
-                "goals_against",
-                "result",
-                "points",
+        if not selected_seasons:
+            st.info("Select at least one season.")
+
+        else:
+            # Filter to selected team and seasons
+            comparison = all_results[
+                (all_results["team"] == comparison_team)
+                & (
+                    all_results["season"].isin(
+                        selected_seasons
+                    )
+                )
+            ].copy()
+
+            # Number of matches available in each season
+            counts = (
+                comparison.groupby("season")["match_number"]
+                .max()
+                .to_dict()
+            )
+
+            view_mode = st.segmented_control(
+                "Timeline",
+                options=[
+                    "Full available seasons",
+                    "First N matches",
+                ],
+                default="Full available seasons",
+                key="cross_view_mode",
+            )
+
+            if view_mode == "First N matches":
+                # Equal-length comparison
+                max_common = int(min(counts.values()))
+
+                if max_common > 1:
+                    n_matches = st.slider(
+                        "Compare first N matches",
+                        min_value=1,
+                        max_value=max_common,
+                        value=max_common,
+                        key="cross_match_limit",
+                    )
+                else:
+                    n_matches = 1
+                    st.caption(
+                        "Only one completed match "
+                        "is available for comparison."
+                    )
+
+                comparison = comparison[
+                    comparison["match_number"] <= n_matches
+                ].copy()
+
+                st.caption(
+                    f"Comparing the first {n_matches} "
+                    "completed matches of each season."
+                )
+
+            else:
+                st.caption(
+                    "Showing all completed matches "
+                    "available for each season. "
+                    "Ongoing seasons end at their "
+                    "latest completed match."
+                )
+
+            # Consistent season colours
+            season_colors = {
+                "2024-25": "#2563EB",
+                "2025-26": "#16A34A",
+                "2026-27": "#F59E0B",
+            }
+
+            # Visualisation
+            fig = px.line(
+                comparison,
+                x="match_number",
+                y="cumulative_points",
+                color="season",
+                markers=True,
+                color_discrete_map=season_colors,
+                hover_data=[
+                    "opponent",
+                    "result",
+                    "points",
+                ],
+                labels={
+                    "match_number": "Matches played",
+                    "cumulative_points": "Total points",
+                    "season": "Season",
+                },
+            )
+
+            fig.update_traces(
+                line=dict(width=3),
+                marker=dict(size=6),
+            )
+
+            max_displayed = int(
+                comparison["match_number"].max()
+            )
+
+            fig.update_xaxes(
+                dtick=1 if max_displayed <= 10 else 5
+            )
+
+            st.plotly_chart(
+                style_chart(fig, height=460),
+                use_container_width=True,
+                theme=None,
+            )
+
+            # One summary card per selected season
+            snapshots = (
+                comparison
+                .sort_values(["season", "match_number"])
+                .groupby("season")
+                .tail(1)
+                .sort_values("season")
+            )
+
+            cols = st.columns(len(snapshots))
+
+            for col, (_, row) in zip(
+                cols,
+                snapshots.iterrows(),
+            ):
+                with col:
+                    st.metric(
+                        row["season"].replace("-", "/"),
+                        f"{int(row['cumulative_points'])} pts",
+                    )
+                    st.caption(
+                        f"After {int(row['match_number'])} "
+                        "matches"
+                    )
+
+
+    else:
+        comparison_season = st.selectbox(
+            "Season",
+            SEASONS,
+            index=2,
+            format_func=lambda s: s.replace("-", "/"),
+            key="comparison_season",
+        )
+
+        season_data = all_results[
+            all_results["season"] == comparison_season
+        ]
+
+        available_clubs = sorted(
+            season_data["team"].unique()
+        )
+
+        defaults = [
+            club for club in [
+                "Manchester Utd",
+                "Liverpool",
+                "Arsenal",
             ]
-        ],
-        hide_index=True,
-        use_container_width=True,
-    )
+            if club in available_clubs
+        ]
 
-st.info(
-    f"{selected_team} earned {recent_points} out of "
-    f"{maximum_points} possible points in its last "
-    f"{recent_count} Premier League matches, "
-    f"with {wins} wins, {draws} draws, "
-    f"and {losses} losses."
-)
+        chosen_clubs = st.multiselect(
+            "Choose clubs",
+            available_clubs,
+            default=defaults,
+            key="comparison_clubs",
+        )
 
+        comparison = season_data[
+            season_data["team"].isin(chosen_clubs)
+        ]
 
-# Home vs Away
-st.subheader("Home vs Away")
+        if comparison.empty:
+            st.info("Select at least one club.")
 
-location_stats = (
-    team_results.groupby("location", as_index=False)
-    .agg(
-        Matches=("points", "size"),
-        Points=("points", "sum"),
-        Goals_For=("goals_for", "sum"),
-        Goals_Against=("goals_against", "sum"),
-    )
-)
+        else:
+            fig = px.line(
+                comparison,
+                x="match_number",
+                y="cumulative_points",
+                color="team",
+                markers=True,
+                color_discrete_sequence=PALETTE,
+                hover_data=[
+                    "opponent", "result", "points"
+                ],
+                labels={
+                    "match_number": "Matches played",
+                    "cumulative_points": "Total points",
+                    "team": "Club",
+                },
+            )
 
-st.dataframe(
-    location_stats,
-    hide_index=True,
-    use_container_width=True,
-)
+            fig.update_traces(
+                line=dict(width=3)
+            )
+
+            st.plotly_chart(
+                style_chart(fig, height=460),
+                use_container_width=True,
+            )
+
+            st.caption(
+                "Comparison uses matches played, "
+                "not calendar dates."
+            )
+
 
 # ==========================================
-# TEAM COMPARISON
+# FOOTER & METHODOLOGY
 # ==========================================
 
 st.divider()
-st.subheader("Compare Teams")
 
-default_comparison = [
-    team for team in
-    ["Manchester Utd", "Liverpool", "Arsenal"]
-    if team in teams
-]
+footer_left, footer_right = st.columns([4, 1])
 
-comparison_teams = st.multiselect(
-    "Choose teams",
-    teams,
-    default=default_comparison,
-)
-
-comparison = season_results[
-    season_results["team"].isin(comparison_teams)
-]
-
-if not comparison.empty:
-    comparison_fig = px.line(
-        comparison,
-        x="match_number",
-        y="cumulative_points",
-        color="team",
-        markers=True,
-        hover_data=["opponent", "result", "points"],
-        labels={
-            "match_number": "Matches played",
-            "cumulative_points": "Cumulative points",
-            "team": "Club",
-        },
-        title="Cumulative Points Comparison",
+with footer_left:
+    st.caption(
+        "Sports Analytics Lab · v0.1 "
+        "· Premier League 2024–2027"
     )
 
-    comparison_fig.update_layout(
-        hovermode="x unified",
-        yaxis=dict(rangemode="tozero"),
-    )
+with footer_right:
+    with st.popover(
+        "Data & Methodology",
+        type="tertiary",
+    ):
+        st.markdown(
+            """
+            **Data source**
 
-    st.plotly_chart(comparison_fig, use_container_width=True)
+            FBref via the soccerdata Python library.
 
-st.divider()
+            **Points system**
 
-st.caption(
-    "Data source: FBref (via soccerdata). "
-    "2026/27 is an ongoing season. "
-    "Standings are calculated from completed matches; "
-    "official tie-breakers beyond points, goal difference, "
-    "and goals scored are not implemented."
-)
+            Win = 3, Draw = 1, Loss = 0.
+
+            **Points progression**
+
+            Running total of league points after
+            each completed match.
+
+            **Recent form**
+
+            The most recent 5 or 10 completed
+            league matches.
+
+            **Cross-season comparison**
+
+            Clubs are compared after equal
+            numbers of completed matches.
+
+            **Limitations**
+
+            No strength-of-schedule adjustment.
+            The 2026/27 season is ongoing.
+            Official tie-breakers beyond points,
+            goal difference, and goals scored
+            are not implemented.
+            """
+        )
