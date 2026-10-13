@@ -1,3 +1,6 @@
+import os
+from dotenv import load_dotenv
+from src.processing.read_app_matches import fetch_app_matches
 
 from pathlib import Path
 import sys
@@ -8,6 +11,8 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+load_dotenv(ROOT / ".env")
 
 from src.analysis.performance import get_cross_season_comparison
 
@@ -90,40 +95,24 @@ div[data-testid="stMetric"] {
 # DATA
 # ==========================================
 
-@st.cache_data
+
+
+@st.cache_data(ttl=900)
 def load_matches():
-    frames = []
 
-    for season in SEASONS:
-        filename = (
-            f"fbref_schedule_{season.replace('-', '_')}.csv"
-        )
-        df = pd.read_csv(RAW_DIR / filename)
-        df["season_label"] = season
-        frames.append(df)
+    url = os.getenv("SUPABASE_URL")
+    secret_key = os.getenv("SUPABASE_SECRET_KEY")
 
-    matches = pd.concat(frames, ignore_index=True)
+    # On Streamlit Cloud, credentials will be
+    # provided through Secrets Management.
+    if not url:
+        url = st.secrets["SUPABASE_URL"]
 
-    scores = matches["score"].astype("string").str.extract(
-        r"^\s*(\d+)\s*[-–—]\s*(\d+)\s*$"
-    )
+    if not secret_key:
+        secret_key = st.secrets["SUPABASE_SECRET_KEY"]
 
-    matches["home_goals"] = pd.to_numeric(
-        scores[0], errors="coerce"
-    )
-    matches["away_goals"] = pd.to_numeric(
-        scores[1], errors="coerce"
-    )
-    matches["match_date"] = pd.to_datetime(
-        matches["date"], errors="coerce"
-    )
-    matches["matchweek"] = pd.to_numeric(
-        matches["week"], errors="coerce"
-    )
+    return fetch_app_matches(url, secret_key)
 
-    return matches.dropna(
-        subset=["home_goals", "away_goals", "match_date"]
-    ).copy()
 
 
 def build_team_results(matches):
@@ -455,8 +444,8 @@ with team_tab:
     )
 
     default_team = (
-        team_options.index("Manchester Utd")
-        if "Manchester Utd" in team_options
+        team_options.index("Manchester United FC")
+        if "Manchester United FC" in team_options
         else 0
     )
 
@@ -601,8 +590,8 @@ with compare_tab:
         all_teams = sorted(all_results["team"].unique())
 
         default_club = (
-            all_teams.index("Manchester Utd")
-            if "Manchester Utd" in all_teams
+            all_teams.index("Manchester United FC")
+            if "Manchester United FC" in all_teams
             else 0
         )
 
@@ -787,7 +776,7 @@ with compare_tab:
 
         defaults = [
             club for club in [
-                "Manchester Utd",
+                "Manchester United FC",
                 "Liverpool",
                 "Arsenal",
             ]
@@ -841,6 +830,7 @@ with compare_tab:
             )
 
 
+
 # ==========================================
 # FOOTER & METHODOLOGY
 # ==========================================
@@ -851,8 +841,13 @@ footer_left, footer_right = st.columns([4, 1])
 
 with footer_left:
     st.caption(
-        "Sports Analytics Lab · v0.1 "
-        "· Premier League 2024–2027"
+        "Sports Analytics Lab · v0.1 · Premier League 2024–2027"
+    )
+
+    # Visible data source attribution
+    st.caption(
+        "Football data provided by the Football-Data.org API "
+        "· Historical results: OpenFootball (CC0)"
     )
 
 with footer_right:
@@ -862,35 +857,36 @@ with footer_right:
     ):
         st.markdown(
             """
-            **Data source**
+            **Data sources**
 
-            FBref via the soccerdata Python library.
+            - **2024/25 and 2025/26:** OpenFootball (CC0 / public domain)
+            - **2026/27:** football-data.org API
 
-            **Points system**
+            **Data freshness**
 
-            Win = 3, Draw = 1, Loss = 0.
+            The current season uses the latest
+            successfully retrieved API snapshot.
+            Data is not updated in real time.
 
-            **Points progression**
+            **Points calculation**
 
-            Running total of league points after
-            each completed match.
-
-            **Recent form**
-
-            The most recent 5 or 10 completed
-            league matches.
+            - Win = 3 points
+            - Draw = 1 point
+            - Loss = 0 points
 
             **Cross-season comparison**
 
-            Clubs are compared after equal
-            numbers of completed matches.
+            Teams are compared by matches played,
+            not calendar dates.
 
             **Limitations**
 
-            No strength-of-schedule adjustment.
-            The 2026/27 season is ongoing.
-            Official tie-breakers beyond points,
-            goal difference, and goals scored
+            Standings are calculated independently
+            by Sports Analytics Lab.
+
+            Strength of schedule is not adjusted.
+            Additional official league tie-breakers
             are not implemented.
             """
         )
+
