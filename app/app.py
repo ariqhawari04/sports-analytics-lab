@@ -14,6 +14,10 @@ sys.path.insert(0, str(ROOT))
 
 load_dotenv(ROOT / ".env")
 
+from src.processing.read_app_matches import (
+    fetch_app_matches
+)
+
 from src.analysis.performance import get_cross_season_comparison
 
 RAW_DIR = ROOT / "data" / "raw"
