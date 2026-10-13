@@ -1,0 +1,4 @@
+pandas
+python-dotenv
+supabase==2.32.0
+requests
