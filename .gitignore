@@ -2,6 +2,7 @@ __pycache__/
 
 .venv/
 .venv-etl/
+
 .env
 .env.*
 !.env.example
@@ -10,3 +11,4 @@ __pycache__/
 
 data/raw/
 data/processed/
+downloaded_files/
