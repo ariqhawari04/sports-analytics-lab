@@ -618,7 +618,7 @@ st.html("""
         Sports Analytics Lab<span>.</span>
     </h1>
     <p class="sal-tagline">
-        Beyond results. Understand performance.
+        There's more to the game than just the score.
     </p>
 </div>
 """)
