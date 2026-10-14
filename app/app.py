@@ -390,23 +390,21 @@ st.html("""
 # DATA
 # ==========================================
 
-
-
 @st.cache_data(ttl=900)
 def load_matches():
 
-    url = os.getenv("SUPABASE_URL")
-    secret_key = os.getenv("SUPABASE_SECRET_KEY")
+    def get_credential(name):
+        return (
+            os.getenv(name)
+            or st.secrets[name]
+        )
 
-    # On Streamlit Cloud, credentials will be
-    # provided through Secrets Management.
-    if not url:
-        url = st.secrets["SUPABASE_URL"]
+    return fetch_app_matches(
+        host=get_credential("SUPABASE_POOLER_HOST"),
+        user=get_credential("SUPABASE_READER_USER"),
+        password=get_credential("SUPABASE_READER_PASSWORD"),
+    )
 
-    if not secret_key:
-        secret_key = st.secrets["SUPABASE_SECRET_KEY"]
-
-    return fetch_app_matches(url, secret_key)
 
 
 

@@ -1,41 +1,42 @@
 
 import pandas as pd
-from supabase import create_client
+import psycopg
+from psycopg.rows import dict_row
 
 
-def fetch_app_matches(url, secret_key):
+def fetch_app_matches(host, user, password):
     """
-    Fetch all completed matches from Supabase
-    using pagination.
+    Read match data using a restricted
+    PostgreSQL account.
     """
 
-    client = create_client(url, secret_key)
+    with psycopg.connect(
+        host=host,
+        port=5432,
+        dbname="postgres",
+        user=user,
+        password=password,
+        sslmode="require",
+        connect_timeout=15,
+        row_factory=dict_row,
+    ) as conn:
 
-    records = []
-    page_size = 500
-    offset = 0
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    season,
+                    source,
+                    match_date,
+                    matchweek,
+                    home_team,
+                    away_team,
+                    home_goals,
+                    away_goals
+                FROM public.app_matches
+                ORDER BY season, match_date, id
+            """)
 
-    columns = (
-        "id,season,source,match_date,matchweek,"
-        "home_team,away_team,home_goals,away_goals"
-    )
-
-    while True:
-        response = (
-            client.table("app_matches")
-            .select(columns)
-            .order("id")
-            .range(offset, offset + page_size - 1)
-            .execute()
-        )
-
-        batch = response.data or []
-        records.extend(batch)
-
-        if len(batch) < page_size:
-            break
-
-        offset += page_size
+            records = cursor.fetchall()
 
     if not records:
         raise ValueError(
@@ -45,37 +46,47 @@ def fetch_app_matches(url, secret_key):
     df = pd.DataFrame(records)
 
     # Validate fixture uniqueness
-    if df.duplicated(
-        ["season", "home_team", "away_team"]
-    ).any():
-        raise ValueError("Duplicate fixtures found")
+    if df.duplicated([
+        "season",
+        "home_team",
+        "away_team",
+    ]).any():
+        raise ValueError(
+            "Duplicate fixtures found"
+        )
 
-    # Convert database columns to analytics format
+    # Prepare data for the analytics engine
     df["season_label"] = df["season"]
 
     df["match_date"] = pd.to_datetime(
         df["match_date"],
-        errors="raise"
+        errors="raise",
     )
 
     df["matchweek"] = pd.to_numeric(
         df["matchweek"],
-        errors="raise"
+        errors="raise",
     )
 
     for col in ["home_goals", "away_goals"]:
         df[col] = pd.to_numeric(
             df[col],
-            errors="raise"
+            errors="raise",
         )
 
     required = [
-        "season", "match_date", "matchweek",
-        "home_team", "away_team",
-        "home_goals", "away_goals"
+        "season",
+        "match_date",
+        "matchweek",
+        "home_team",
+        "away_team",
+        "home_goals",
+        "away_goals",
     ]
 
     if df[required].isna().any().any():
-        raise ValueError("Incomplete match records")
+        raise ValueError(
+            "Incomplete match records"
+        )
 
     return df
