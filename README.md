@@ -6,6 +6,8 @@ An independent, passion-driven sports analytics project exploring how data can h
 
 **[Explore the Live App](https://sports-analytics-lab.streamlit.app/)**
 
+![Sports Analytics Lab - League Overview](docs/images/league-overview.png)
+
 ---
 
 ## The Story Behind This Project
@@ -42,11 +44,13 @@ Rather than simply displaying match results, the application allows users to exp
 
 **League Overview**
 
-Explore Premier League standings, match results, and key performance indicators across different seasons.
+Explore Premier League standings and key performance indicators across different seasons.
 
 **Team Explorer**
 
 Take a closer look at individual clubs through cumulative points progression, recent match form, home and away performance, and other team-level statistics.
+
+![Sports Analytics Lab - Performance Analytics](docs/images/team-explorer.png)
 
 **Comparison Lab**
 
