@@ -1,3 +1,2 @@
 -r requirements-etl.txt
-streamlit
-plotly
+-r app/requirements.txt
