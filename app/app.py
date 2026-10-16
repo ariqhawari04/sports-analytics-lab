@@ -2415,10 +2415,12 @@ with h2h_tab:
                 )
 
             st.info(insight)
-
+            
+            
             # ==================================
             # PREVIOUS MEETINGS
             # ==================================
+
             st.divider()
 
             st.subheader("Previous Meetings")
@@ -2462,23 +2464,104 @@ with h2h_tab:
 
             st.dataframe(
                 display[
-                    [
-                        "Date",
-                        "Season",
-                        "Home",
-                        "Score",
-                        "Away",
-                    ]
+                    ["Date", "Season", "Home", "Score", "Away"]
                 ],
                 hide_index=True,
                 use_container_width=True,
             )
 
+            # ==================================
+            # GOALS BREAKDOWN
+            # ==================================
+
+            st.divider()
+
+            st.subheader("Goals Breakdown")
+
             st.caption(
-                "Statistics include completed Premier League "
-                "matches available in Sports Analytics Lab. "
-                "They do not represent all-time meetings."
+                "Goals scored across the selected "
+                "head-to-head meetings."
             )
+
+            # Calculate goals for each club
+            # regardless of home or away status.
+
+            team_a_goals = (
+                meetings["home_goals"].where(
+                    meetings["home_team"] == team_a,
+                    meetings["away_goals"],
+                ).astype(int)
+            )
+
+            team_b_goals = (
+                meetings["home_goals"].where(
+                    meetings["home_team"] == team_b,
+                    meetings["away_goals"],
+                ).astype(int)
+            )
+
+            total_a_goals = int(team_a_goals.sum())
+            total_b_goals = int(team_b_goals.sum())
+
+            total_goals = total_a_goals + total_b_goals
+            avg_goals = total_goals / len(meetings)
+
+            goal_a, goal_avg, goal_b = st.columns(3)
+
+            goal_a.metric(
+                f"{team_a} Goals",
+                total_a_goals,
+            )
+
+            goal_avg.metric(
+                "Goals per Meeting",
+                f"{avg_goals:.2f}",
+            )
+
+            goal_b.metric(
+                f"{team_b} Goals",
+                total_b_goals,
+            )
+
+            # ==================================
+            # CLEAN SHEETS
+            # ==================================
+
+            st.divider()
+
+            st.subheader("Clean Sheets")
+
+            st.caption(
+                "Number of meetings in which each "
+                "club conceded zero goals."
+            )
+
+            team_a_clean_sheets = int(
+                (team_b_goals == 0).sum()
+            )
+
+            team_b_clean_sheets = int(
+                (team_a_goals == 0).sum()
+            )
+
+            clean_a, clean_b = st.columns(2)
+
+            clean_a.metric(
+                team_a,
+                team_a_clean_sheets,
+            )
+
+            clean_b.metric(
+                team_b,
+                team_b_clean_sheets,
+            )
+
+            st.caption(
+                "Statistics are calculated from completed "
+                "Premier League meetings available in "
+                "Sports Analytics Lab, not all-time records."
+            )
+
 
 
 # ==========================================
