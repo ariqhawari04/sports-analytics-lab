@@ -14,6 +14,7 @@ import streamlit as st
 
 from html import escape
 
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -25,6 +26,12 @@ from src.processing.read_app_matches import (
 
 from src.analysis.performance import get_cross_season_comparison
 from src.analysis.head_to_head import get_head_to_head
+
+from src.analysis.league_records import (
+    build_club_records,
+    get_match_extremes,
+    get_club_biggest_wins,
+)
 
 RAW_DIR = ROOT / "data" / "raw"
 SEASONS = ["2024-25", "2025-26", "2026-27"]
@@ -1027,6 +1034,421 @@ with league_tab:
         "Additional official tie-breakers are not applied."
     )
 
+    
+    # ======================================
+    # SEASON RECORDS & INSIGHTS
+    # ======================================
+
+    st.divider()
+
+    st.subheader("Season Records & Insights")
+
+    st.caption(
+        "Standout performances and match records "
+        "from the selected Premier League season."
+    )
+
+    club_records = build_club_records(
+        all_results,
+        league_season,
+    )
+
+    match_records = get_match_extremes(
+        league_matches,
+        league_season,
+    )
+
+    # Include joint record holders, rather than
+    # displaying only the first club.
+    def record_leader(metric):
+        eligible = club_records.dropna(
+            subset=[metric]
+        )
+
+        if eligible.empty:
+            return None, "No matches available"
+
+        record = eligible[metric].max()
+
+        clubs = sorted(
+            eligible.loc[
+                eligible[metric] == record, "team"
+            ].tolist()
+        )
+
+        if len(clubs) <= 2:
+            club_label = " · ".join(clubs)
+        else:
+            club_label = (
+                " · ".join(clubs[:2])
+                + f" · +{len(clubs) - 2} tied"
+            )
+
+        return record, club_label
+
+    # ==================================
+    # CLUB PERFORMANCE RECORDS
+    # ==================================
+
+    winning_record, winning_clubs = record_leader(
+        "Longest_Winning_Streak"
+    )
+
+    unbeaten_record, unbeaten_clubs = record_leader(
+        "Longest_Unbeaten_Streak"
+    )
+
+    clean_sheet_record, clean_sheet_clubs = record_leader(
+        "Clean_Sheets"
+    )
+
+    home_record, home_clubs = record_leader(
+        "Home_PPG"
+    )
+
+    away_record, away_clubs = record_leader(
+        "Away_PPG"
+    )
+
+    record_col1, record_col2, record_col3 = (
+        st.columns(3)
+    )
+
+    with record_col1:
+        st.metric(
+            "Longest Winning Streak",
+            f"{int(winning_record)} matches",
+        )
+        st.caption(winning_clubs)
+
+    with record_col2:
+        st.metric(
+            "Longest Unbeaten Streak",
+            f"{int(unbeaten_record)} matches",
+        )
+        st.caption(unbeaten_clubs)
+
+    with record_col3:
+        st.metric(
+            "Most Clean Sheets",
+            int(clean_sheet_record),
+        )
+        st.caption(clean_sheet_clubs)
+
+    home_col, away_col = st.columns(2)
+
+    with home_col:
+        st.metric(
+            "Best Home Points per Match",
+            f"{home_record:.2f}"
+            if home_record is not None else "—",
+        )
+        st.caption(home_clubs)
+
+    with away_col:
+        st.metric(
+            "Best Away Points per Match",
+            f"{away_record:.2f}"
+            if away_record is not None else "—",
+        )
+        st.caption(away_clubs)
+
+    # ==================================
+    # STANDOUT MATCH RECORDS
+    # ==================================
+
+    st.markdown("**Standout Matches**")
+
+    highest_scoring = match_records[
+        "highest_scoring"
+    ]
+
+    biggest_wins = match_records[
+        "biggest_wins"
+    ]
+
+    match_col1, match_col2 = st.columns(2)
+
+    with match_col1:
+        top_match = highest_scoring.iloc[0]
+
+        st.metric(
+            "Highest-Scoring Match",
+            f"{int(top_match['Total_Goals'])} goals",
+        )
+
+        st.caption(
+            f"{top_match['home_team']} "
+            f"{int(top_match['home_goals'])}–"
+            f"{int(top_match['away_goals'])} "
+            f"{top_match['away_team']}"
+        )
+
+        if len(highest_scoring) > 1:
+            st.caption(
+                f"{len(highest_scoring)} matches "
+                "share this record."
+            )
+
+    with match_col2:
+        if biggest_wins.empty:
+            st.metric(
+                "Biggest Victory",
+                "—",
+            )
+            st.caption("No decisive result yet.")
+
+        else:
+            top_win = biggest_wins.iloc[0]
+
+            st.metric(
+                "Biggest Victory",
+                f"{int(top_win['Winning_Margin'])} "
+                "goals",
+            )
+
+            st.caption(
+                f"{top_win['home_team']} "
+                f"{int(top_win['home_goals'])}–"
+                f"{int(top_win['away_goals'])} "
+                f"{top_win['away_team']}"
+            )
+
+            if len(biggest_wins) > 1:
+                st.caption(
+                    f"{len(biggest_wins)} matches "
+                    "share this record."
+                )
+
+    # ==================================
+    # DETAILED CLUB LEADERBOARD
+    # ==================================
+
+    
+
+    # ======================================
+    # INTERACTIVE SEASON RECORDS LEADERBOARD
+    # ======================================
+
+    with st.expander(
+        "Explore Full Season Records",
+        expanded=False,
+    ):
+
+        # Metric and appropriate match-count column
+        record_metrics = {
+            "Clean Sheets": ("Clean_Sheets", "MP"),
+            "Winning Streak": (
+                "Longest_Winning_Streak", "MP"
+            ),
+            "Unbeaten Streak": (
+                "Longest_Unbeaten_Streak", "MP"
+            ),
+            "Home Points per Match": (
+                "Home_PPG", "Home_MP"
+            ),
+            "Away Points per Match": (
+                "Away_PPG", "Away_MP"
+            ),
+        }
+
+        selected_record = st.selectbox(
+            "Rank clubs by",
+            options=list(record_metrics.keys()),
+            key="league_records_metric",
+        )
+
+        metric_column, matches_column = (
+            record_metrics[selected_record]
+        )
+
+        # ==================================
+        # PREPARE COMPLETE LEAGUE DATA
+        # ==================================
+
+        leaderboard = club_records[
+            ["team", metric_column, matches_column]
+        ].dropna(
+            subset=[metric_column]
+        ).copy()
+
+        leaderboard = leaderboard.sort_values(
+            [metric_column, "team"],
+            ascending=[False, True],
+        )
+
+        # Arithmetic mean across eligible clubs.
+        league_average = float(
+            leaderboard[metric_column].mean()
+        )
+
+        is_ppg = metric_column.endswith("PPG")
+
+        average_label = (
+            f"{league_average:.2f}"
+            if is_ppg
+            else f"{league_average:.1f}"
+        )
+
+        st.caption(
+            f"League average: {average_label} "
+            f"· {len(leaderboard)} clubs included"
+        )
+
+        # ==================================
+        # COLOUR BY LEAGUE AVERAGE
+        # ==================================
+
+        # Plotly horizontal bars display
+        # the final row at the top.
+        chart_data = leaderboard.iloc[::-1].copy()
+
+        bar_colors = [
+            BLUE
+            if value >= league_average
+            else "#CBD5E1"
+            for value in chart_data[metric_column]
+        ]
+
+        value_labels = [
+            f"{value:.2f}" if is_ppg else f"{value:.0f}"
+            for value in chart_data[metric_column]
+        ]
+
+        # ==================================
+        # FULL LEAGUE BAR CHART
+        # ==================================
+
+        fig_records = go.Figure()
+
+        fig_records.add_trace(
+            go.Bar(
+                x=chart_data[metric_column],
+                y=chart_data["team"],
+                orientation="h",
+
+                marker=dict(
+                    color=bar_colors,
+                    line=dict(width=0),
+                ),
+
+                text=value_labels,
+                textposition="outside",
+                cliponaxis=False,
+
+                customdata=chart_data[
+                    [matches_column]
+                ].to_numpy(),
+
+                hovertemplate=(
+                    "<b>%{y}</b>"
+                    f"<br>{selected_record}: "
+                    + ("%{x:.2f}" if is_ppg else "%{x:.0f}")
+                    + "<br>Matches in sample: "
+                    "%{customdata[0]}"
+                    "<extra></extra>"
+                ),
+
+                showlegend=False,
+            )
+        )
+
+        # ==================================
+        # LEAGUE AVERAGE REFERENCE LINE
+        # ==================================
+
+        fig_records.add_vline(
+            x=league_average,
+            line_width=2,
+            line_dash="dash",
+            line_color="#64748B",
+        )
+
+        max_value = float(
+            leaderboard[metric_column].max()
+        )
+
+        fig_records.update_layout(
+            template="plotly_white",
+            height=max(480, len(chart_data) * 32 + 75),
+
+            margin=dict(
+                l=10,
+                r=65,
+                t=20,
+                b=45,
+            ),
+
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+
+            font=dict(
+                size=13,
+                color="#0F172A",
+            ),
+
+            showlegend=False,
+            xaxis_title=selected_record,
+            yaxis_title=None,
+            bargap=0.28,
+        )
+
+        fig_records.update_xaxes(
+            range=[
+                0,
+                max(1.0, max_value * 1.18),
+            ],
+            gridcolor="rgba(148,163,184,0.15)",
+            zeroline=False,
+            fixedrange=True,
+        )
+
+        fig_records.update_yaxes(
+            automargin=True,
+            showgrid=False,
+            fixedrange=True,
+        )
+
+        st.plotly_chart(
+            fig_records,
+            use_container_width=True,
+            theme=None,
+            key="league_records_leaderboard_chart",
+        )
+
+        # ==================================
+        # CHART EXPLANATION
+        # ==================================
+
+        st.caption(
+            "Blue = at or above league average "
+            "· Grey = below league average "
+            "· Dashed line = league average."
+        )
+
+        if is_ppg:
+            st.caption(
+                "Home and away PPG are calculated "
+                "using completed matches at the "
+                "selected venue. Clubs without "
+                "eligible matches are excluded."
+            )
+        else:
+            st.caption(
+                "Records are calculated using each "
+                "club's completed matches. "
+                "Streaks follow chronological "
+                "match order."
+            )
+
+    st.caption(
+        "Records are based on completed Premier League "
+        "matches in the selected season. Home and away "
+        "PPG are calculated from matches played at each "
+        "venue; early-season comparisons may involve "
+        "different sample sizes."
+    )
+
 
 # ==========================================
 # TAB 2 — TEAM EXPLORER
@@ -1154,6 +1576,121 @@ with team_tab:
 
     with right:
         show_recent_form(team_results)
+
+    st.divider()
+
+    
+    # ======================================
+    # CLUB RECORDS & MILESTONES
+    # ======================================
+
+    st.subheader("Club Records & Milestones")
+
+    st.caption(
+        f"Notable records for {selected_team} "
+        f"in the {team_season.replace('-', '/')} season."
+    )
+
+    season_club_records = build_club_records(
+        team_season_results,
+        team_season,
+    )
+
+    selected_club_record = (
+        season_club_records.loc[
+            season_club_records["team"] == selected_team
+        ].iloc[0]
+    )
+
+    biggest_club_wins = get_club_biggest_wins(
+        matches,
+        team_season,
+        selected_team,
+    )
+
+    # ==================================
+    # WINNING & UNBEATEN STREAKS
+    # ==================================
+
+    streak_col1, streak_col2 = st.columns(2)
+
+    with streak_col1:
+        st.metric(
+            "Longest Winning Streak",
+            f"{int(selected_club_record['Longest_Winning_Streak'])} "
+            "matches",
+        )
+
+    with streak_col2:
+        st.metric(
+            "Longest Unbeaten Streak",
+            f"{int(selected_club_record['Longest_Unbeaten_Streak'])} "
+            "matches",
+        )
+
+    # ==================================
+    # CLEAN SHEETS & BIGGEST VICTORY
+    # ==================================
+
+    club_col1, club_col2 = st.columns(2)
+
+    with club_col1:
+        st.metric(
+            "Clean Sheets",
+            int(selected_club_record["Clean_Sheets"]),
+        )
+
+        st.caption(
+            "Completed matches without conceding."
+        )
+
+    with club_col2:
+        if biggest_club_wins.empty:
+            st.metric(
+                "Biggest Victory",
+                "—",
+            )
+
+            st.caption(
+                "No victories recorded in this season yet."
+            )
+
+        else:
+            biggest_win = biggest_club_wins.iloc[0]
+
+            victory_margin = int(
+                biggest_win["Winning_Margin"]
+            )
+
+            goals_for = int(
+                biggest_win["Goals_For"]
+            )
+
+            goals_against = int(
+                biggest_win["Goals_Against"]
+            )
+
+            st.metric(
+                "Biggest Victory",
+                f"{victory_margin}-goal margin",
+            )
+
+            st.caption(
+                f"vs {biggest_win['Opponent']} "
+                f"({biggest_win['Location']}) "
+                f"· {goals_for}–{goals_against}"
+            )
+
+            if len(biggest_club_wins) > 1:
+                st.caption(
+                    f"{len(biggest_club_wins)} victories "
+                    "share this record."
+                )
+
+    st.caption(
+        "Records reflect completed matches in the "
+        "selected season, not all-time club records."
+    )
 
     st.divider()
 
