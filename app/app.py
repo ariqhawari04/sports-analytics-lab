@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 
+import time
+
 from pathlib import Path
 import sys
 
@@ -14,6 +16,11 @@ import streamlit as st
 
 from html import escape
 
+SAL_PERF = os.getenv("SAL_PERF", "0") == "1"
+
+if SAL_PERF:
+    perf_start = time.perf_counter()
+
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -24,6 +31,7 @@ from src.processing.read_app_matches import (
     fetch_app_matches
 )
 
+from src.analysis.standings import build_standings
 from src.analysis.performance import get_cross_season_comparison
 from src.analysis.head_to_head import get_head_to_head
 
@@ -42,12 +50,6 @@ RED = "#DC2626"
 SLATE = "#64748B"
 PALETTE = [BLUE, GREEN, "#F59E0B", "#8B5CF6", RED]
 
-POINT_DEDUCTIONS = {
-    "2023-24": {
-        "Everton FC": 8,
-        "Nottingham Forest FC": 4,
-    },
-}
 
 st.set_page_config(
     page_title="Sports Analytics Lab",
@@ -482,53 +484,6 @@ def build_team_results(matches):
     return results
 
 
-def build_standings(results):
-    table = (
-        results.groupby("team")
-        .agg(
-            MP=("points", "size"),
-            W=("result", lambda x: (x == "W").sum()),
-            D=("result", lambda x: (x == "D").sum()),
-            L=("result", lambda x: (x == "L").sum()),
-            GF=("goals_for", "sum"),
-            GA=("goals_against", "sum"),
-            Pts=("points", "sum"),
-        )
-        .reset_index()
-    )
-
-    table["GD"] = table["GF"] - table["GA"]
-
-    # Apply official season-end points deductions.
-    seasons = results["season"].unique()
-
-    if len(seasons) != 1:
-        raise ValueError(
-            "Standings must contain exactly one season."
-        )
-
-    season = seasons[0]
-
-    deductions = POINT_DEDUCTIONS.get(season, {})
-
-    table["Deduction"] = (
-        table["team"]
-        .map(deductions)
-        .fillna(0)
-        .astype(int)
-    )
-
-    table["Pts"] -= table["Deduction"]
-
-    table = table.sort_values(
-        ["Pts", "GD", "GF"],
-        ascending=[False, False, False]
-    ).reset_index(drop=True)
-
-    table.insert(0, "Position", table.index + 1)
-    return table
-
-
 def style_chart(fig, height=420):
     """Consistent light style for all Plotly charts."""
 
@@ -637,26 +592,37 @@ def show_recent_form(team_results):
         st.dataframe(
             details,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
-
 
 
 # ==========================================
 # LOAD APP DATA
 # ==========================================
 
+if SAL_PERF:
+    db_start = time.perf_counter()
+
 matches = load_matches()
 
-# Automatically detect available seasons
-# from the Supabase match dataset.
+if SAL_PERF:
+    db_seconds = time.perf_counter() - db_start
+
 SEASONS = sorted(
     matches["season"].dropna().unique().tolist()
 )
 
 LATEST_SEASON = SEASONS[-1]
 
+if SAL_PERF:
+    processing_start = time.perf_counter()
+
 all_results = build_team_results(matches)
+
+if SAL_PERF:
+    processing_seconds = (
+        time.perf_counter() - processing_start
+    )
 
 
 # ==========================================
@@ -1459,7 +1425,7 @@ with league_tab:
 
         st.plotly_chart(
             fig_records,
-            use_container_width=True,
+            width="stretch",
             theme=None,
             key="league_records_leaderboard_chart",
         )
@@ -1637,7 +1603,7 @@ with team_tab:
 
         st.plotly_chart(
             style_chart(fig),
-            use_container_width=True,
+            width="stretch",
             theme=None,
         )
 
@@ -1895,7 +1861,7 @@ with team_tab:
                     ]
                 ],
                 hide_index=True,
-                use_container_width=True,
+                width="stretch"
             )
 
             first_match_date = pd.to_datetime(
@@ -1941,7 +1907,7 @@ with team_tab:
         st.dataframe(
             location_stats,
             hide_index=True,
-            use_container_width=True,
+            width="stretch"
         )
 
     
@@ -2092,7 +2058,7 @@ with team_tab:
 
             st.plotly_chart(
                 style_chart(fig_cross, height=460),
-                use_container_width=True,
+                width="stretch",
                 theme=None,
                 key="team_explorer_cross_seasons_chart",
             )
@@ -2275,11 +2241,17 @@ with compare_tab:
             ])
 
         statistics_df = pd.DataFrame(statistics)
+        
+        # Ensure consistent types for Arrow serialization.
+        for club in selected_clubs:
+            statistics_df[club] = (
+                statistics_df[club].astype(str)
+            )
 
         st.dataframe(
             statistics_df,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
         st.caption(
@@ -2287,6 +2259,43 @@ with compare_tab:
             "league matches. League positions follow SAL's "
             "standings calculation."
         )
+
+
+        # ==================================
+        # OFFICIAL POINTS ADJUSTMENTS
+        # ==================================
+
+        deduction_notes = []
+
+        for club in selected_clubs:
+
+            earned_points = int(
+                season_data.loc[
+                    season_data["team"] == club,
+                    "points",
+                ].sum()
+            )
+
+            official_points = int(
+                full_standings.loc[club, "Pts"]
+            )
+
+            deduction = earned_points - official_points
+
+            if deduction > 0:
+                deduction_notes.append(
+                    f"{club}: {earned_points} earned points, "
+                    f"{official_points} official points "
+                    f"after a {deduction}-point deduction"
+                )
+
+        if deduction_notes:
+            st.caption(
+                " · ".join(deduction_notes)
+                + ". Points Progression shows points "
+                "earned from match results."
+            )
+
 
         # ==================================
         # 2. POINTS PROGRESSION
@@ -2338,7 +2347,7 @@ with compare_tab:
 
         st.plotly_chart(
             style_chart(fig_points, height=460),
-            use_container_width=True,
+            width="stretch",
             theme=None,
             key="tc_points_chart",
         )
@@ -2429,7 +2438,7 @@ with compare_tab:
 
         st.plotly_chart(
             fig_goals,
-            use_container_width=True,
+            width="stretch",
             theme=None,
             key="tc_goals_chart",
         )
@@ -2778,7 +2787,7 @@ with compare_tab:
 
         st.plotly_chart(
             fig_form,
-            use_container_width=True,
+            width="stretch",
             theme=None,
             key="tc_recent_form_compact_bars",
             config={"displayModeBar": False},
@@ -2815,7 +2824,7 @@ with compare_tab:
                 ["Club", "MP", "W", "D", "L", "Points"]
             ],
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
         st.caption(
@@ -3238,7 +3247,7 @@ with h2h_tab:
                     ["Date", "Season", "Home", "Score", "Away"]
                 ],
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
 
             # ==================================
@@ -3395,3 +3404,14 @@ with footer_right:
             """
         )
 
+
+if SAL_PERF:
+    total_seconds = time.perf_counter() - perf_start
+
+    print(
+        f"[SAL PERF] "
+        f"Matches: {len(matches)} | "
+        f"Data load: {db_seconds:.3f}s | "
+        f"Team processing: {processing_seconds:.3f}s | "
+        f"Total script: {total_seconds:.3f}s"
+    )
