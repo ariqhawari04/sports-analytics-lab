@@ -35,7 +35,6 @@ from src.analysis.league_records import (
 )
 
 RAW_DIR = ROOT / "data" / "raw"
-SEASONS = ["2024-25", "2025-26", "2026-27"]
 
 BLUE = "#2563EB"
 GREEN = "#16A34A"
@@ -620,6 +619,15 @@ def show_recent_form(team_results):
 # ==========================================
 
 matches = load_matches()
+
+# Automatically detect available seasons
+# from the Supabase match dataset.
+SEASONS = sorted(
+    matches["season"].dropna().unique().tolist()
+)
+
+LATEST_SEASON = SEASONS[-1]
+
 all_results = build_team_results(matches)
 
 
@@ -669,7 +677,7 @@ with league_tab:
         league_season = st.selectbox(
             "Season",
             SEASONS,
-            index=2,
+            index=SEASONS.index(LATEST_SEASON),
             format_func=lambda s: s.replace("-", "/"),
             key="league_season",
         )
@@ -1468,7 +1476,7 @@ with team_tab:
         team_season = st.selectbox(
             "Season",
             SEASONS,
-            index=2,
+            index=SEASONS.index(LATEST_SEASON),
             format_func=lambda s: s.replace("-", "/"),
             key="team_season",
         )
@@ -1905,7 +1913,7 @@ with team_tab:
         compare_seasons = st.multiselect(
             "Choose seasons",
             options=available_seasons,
-            default=available_seasons,
+            default=available_seasons[-5:],
             format_func=lambda s: s.replace("-", "/"),
             key="team_compare_seasons",
         )
@@ -1974,12 +1982,19 @@ with team_tab:
                     "completed match."
                 )
 
-            # Consistent season colours
+            # Assign stable colours to all available seasons.
             season_colors = {
-                "2024-25": "#2563EB",
-                "2025-26": "#16A34A",
-                "2026-27": "#F59E0B",
+                season: px.colors.qualitative.Dark24[i % 24]
+                for i, season in enumerate(SEASONS)
             }
+
+            # Preserve the original SAL colours
+            # for the three most recent seasons.
+            season_colors.update({
+                "2024-25": BLUE,
+                "2025-26": GREEN,
+                "2026-27": "#F59E0B",
+            })
 
             # ==================================
             # POINTS PROGRESSION CHART
@@ -2079,7 +2094,7 @@ with compare_tab:
         comparison_season = st.selectbox(
             "Season",
             SEASONS,
-            index=2,
+            index=SEASONS.index(LATEST_SEASON),
             format_func=lambda s: s.replace("-", "/"),
             key="tc_season",
         )
@@ -2823,7 +2838,7 @@ with h2h_tab:
     selected_seasons = st.multiselect(
         "Seasons",
         options=SEASONS,
-        default=SEASONS,
+        default=SEASONS[-5:],
         format_func=lambda s: s.replace("-", "/"),
         key="h2h_seasons",
     )
