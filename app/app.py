@@ -3179,19 +3179,20 @@ with h2h_tab:
                     f"{team_a} have the better head-to-head record "
                     f"in the selected seasons, with {team_a_wins} wins "
                     f"compared to {team_b_wins} for {team_b}. "
-                    f"{draws} meeting(s) ended in draws."
+                    f"{draws} {'meeting' if draws == 1 else 'meetings'} ended in draws."
                 )
             elif team_b_wins > team_a_wins:
                 insight = (
                     f"{team_b} have the better head-to-head record "
                     f"in the selected seasons, with {team_b_wins} wins "
                     f"compared to {team_a_wins} for {team_a}. "
-                    f"{draws} meeting(s) ended in draws."
+                    f"{draws} {'meeting' if draws == 1 else 'meetings'} ended in draws."
                 )
             else:
                 insight = (
                     f"Both clubs are level in the selected seasons, "
-                    f"with {team_a_wins} win(s) each and {draws} draw(s)."
+                    f"with {team_a_wins} {'win' if team_a_wins == 1 else 'wins'} "
+                    f"each and {draws} {'draw' if draws == 1 else 'draws'}."
                 )
 
             st.info(insight)

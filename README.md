@@ -24,7 +24,7 @@ So I decided to try building one myself.
 
 Sports Analytics Lab started as a personal portfolio project, but it is equally a passion project. I wanted to challenge myself to build something from the ground up, apply my analytical and technical skills to something I genuinely enjoy, and learn how to turn raw sports data into a working application along the way.
 
-Although this first version is only a starting point, getting here has involved plenty of learning, experimentation, debugging, and problem-solving.
+Getting to this stage has involved plenty of learning, experimentation, debugging, and problem-solving.
 
 And frankly, that's what has made the journey so rewarding.
 
