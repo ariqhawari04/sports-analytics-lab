@@ -3354,7 +3354,7 @@ footer_left, footer_right = st.columns([4, 1])
 
 with footer_left:
     st.caption(
-        "Sports Analytics Lab · v0.1 · Premier League 2024–2027"
+        "Sports Analytics Lab · v0.2 · Premier League 2015–2027"
     )
 
     # Visible data source attribution
@@ -3369,24 +3369,35 @@ with footer_right:
         type="tertiary",
         key="sal_methodology",
     ):
+        
         st.markdown(
             """
             **Data sources**
 
-            - **2024/25 and 2025/26:** OpenFootball (CC0 / public domain)
+            - **2015/16–2025/26:** OpenFootball (CC0 / public domain)
             - **2026/27:** football-data.org API
 
             **Data freshness**
 
-            The current season uses the latest
-            successfully retrieved API snapshot.
-            Data is not updated in real time.
+            Current-season results are retrieved through
+            scheduled GitHub Actions workflows and stored
+            in Supabase PostgreSQL.
+
+            Updates are periodic, not real-time.
 
             **Points calculation**
 
             - Win = 3 points
             - Draw = 1 point
             - Loss = 0 points
+
+            Official standings account for the final
+            2023/24 points deductions:
+            Everton FC (8 points) and
+            Nottingham Forest FC (4 points).
+
+            Points progression represents points earned
+            from match results, before deductions.
 
             **Cross-season comparison**
 
@@ -3403,6 +3414,7 @@ with footer_right:
             are not implemented.
             """
         )
+
 
 
 if SAL_PERF:
