@@ -42,6 +42,13 @@ RED = "#DC2626"
 SLATE = "#64748B"
 PALETTE = [BLUE, GREEN, "#F59E0B", "#8B5CF6", RED]
 
+POINT_DEDUCTIONS = {
+    "2023-24": {
+        "Everton FC": 8,
+        "Nottingham Forest FC": 4,
+    },
+}
+
 st.set_page_config(
     page_title="Sports Analytics Lab",
     page_icon="⚽",
@@ -491,6 +498,27 @@ def build_standings(results):
     )
 
     table["GD"] = table["GF"] - table["GA"]
+
+    # Apply official season-end points deductions.
+    seasons = results["season"].unique()
+
+    if len(seasons) != 1:
+        raise ValueError(
+            "Standings must contain exactly one season."
+        )
+
+    season = seasons[0]
+
+    deductions = POINT_DEDUCTIONS.get(season, {})
+
+    table["Deduction"] = (
+        table["team"]
+        .map(deductions)
+        .fillna(0)
+        .astype(int)
+    )
+
+    table["Pts"] -= table["Deduction"]
 
     table = table.sort_values(
         ["Pts", "GD", "GF"],
@@ -1043,6 +1071,17 @@ with league_tab:
         "Additional official tie-breakers are not applied."
     )
 
+    # ======================================
+    # OFFICIAL POINTS DEDUCTIONS
+    # ======================================
+
+    if league_season == "2023-24":
+        st.caption(
+            "Official points include deductions: "
+            "Everton FC (−8) and "
+            "Nottingham Forest FC (−4)."
+        )
+
     
     # ======================================
     # SEASON RECORDS & INSIGHTS
@@ -1529,6 +1568,25 @@ with team_tab:
         "Goal difference",
         int(team_stats["GD"]),
     )
+
+    # ======================================
+    # OFFICIAL POINTS ADJUSTMENT EXPLANATION
+    # ======================================
+
+    earned_points = int(team_results["points"].sum())
+    official_points = int(team_stats["Pts"])
+
+    deduction = earned_points - official_points
+
+    if deduction > 0:
+        st.caption(
+            f"{selected_team} earned {earned_points} points "
+            f"from match results, but finished with "
+            f"{official_points} official points after "
+            f"a {deduction}-point deduction. "
+            "Points Progression shows points earned "
+            "from match results."
+        )
 
     st.write("")
 
