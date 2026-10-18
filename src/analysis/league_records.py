@@ -12,6 +12,81 @@ def _longest_streak(results, accepted):
     return longest
 
 
+def get_longest_streak_runs(
+    all_results,
+    season,
+    team,
+    streak_type="winning",
+):
+    """
+    Return all longest streaks for a club in one season.
+
+    winning: consecutive W results
+    unbeaten: consecutive W or D results
+
+    Each longest streak is returned as a DataFrame
+    of its contributing matches in chronological order.
+    """
+
+    allowed_by_type = {
+        "winning": {"W"},
+        "unbeaten": {"W", "D"},
+    }
+
+    if streak_type not in allowed_by_type:
+        raise ValueError(
+            "streak_type must be 'winning' or 'unbeaten'"
+        )
+
+    allowed_results = allowed_by_type[streak_type]
+
+    games = (
+        all_results.loc[
+            (all_results["season"] == season)
+            & (all_results["team"] == team)
+        ]
+        .sort_values("match_number")
+        .reset_index(drop=True)
+    )
+
+    best_length = _longest_streak(
+        games["result"],
+        allowed_results,
+    )
+
+    if best_length == 0:
+        return []
+
+    longest_runs = []
+    run_start = None
+
+    for index, result in enumerate(games["result"]):
+
+        if result in allowed_results:
+            if run_start is None:
+                run_start = index
+
+        elif run_start is not None:
+
+            if index - run_start == best_length:
+                longest_runs.append(
+                    games.iloc[run_start:index].copy()
+                )
+
+            run_start = None
+
+    # Handle a streak continuing through
+    # the club's latest completed match.
+    if run_start is not None:
+
+        if len(games) - run_start == best_length:
+            longest_runs.append(
+                games.iloc[run_start:].copy()
+            )
+
+    return longest_runs
+
+
 def build_club_records(all_results, season):
     """One record per club in a season, using chronological match order."""
     season_data = all_results.loc[

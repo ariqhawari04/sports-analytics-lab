@@ -3,7 +3,10 @@
 import pandas as pd
 
 from src.analysis.league_records import (
-    build_club_records, get_match_extremes, get_club_biggest_wins,
+    build_club_records,
+    get_match_extremes,
+    get_club_biggest_wins,
+    get_longest_streak_runs,
 )
 
 raw = pd.DataFrame([
@@ -68,5 +71,66 @@ tie_data = pd.concat([raw, pd.DataFrame([{
     "away_goals": 0,
 }])], ignore_index=True)
 assert len(get_match_extremes(tie_data, "2025-26")["biggest_wins"]) == 2
+
+
+# ==========================================
+# TEST STREAK MATCH HISTORY
+# ==========================================
+
+winning_runs = get_longest_streak_runs(
+    results,
+    "2025-26",
+    "A",
+    streak_type="winning",
+)
+
+assert len(winning_runs) == 1
+assert len(winning_runs[0]) == 2
+assert winning_runs[0]["match_number"].tolist() == [1, 2]
+assert winning_runs[0]["result"].tolist() == ["W", "W"]
+
+unbeaten_runs = get_longest_streak_runs(
+    results,
+    "2025-26",
+    "A",
+    streak_type="unbeaten",
+)
+
+assert len(unbeaten_runs) == 1
+assert len(unbeaten_runs[0]) == 3
+assert unbeaten_runs[0]["result"].tolist() == [
+    "W", "W", "D"
+]
+
+# Club C recorded no wins.
+assert get_longest_streak_runs(
+    results, "2025-26", "C", "winning"
+) == []
+
+# Test two equally long winning streaks.
+# Deliberately shuffle the row order to confirm
+# match_number controls chronology.
+tied_streak_data = pd.DataFrame({
+    "season": ["2025-26"] * 6,
+    "team": ["Test Club"] * 6,
+    "match_number": [4, 2, 6, 1, 5, 3],
+    "result": ["W", "W", "L", "W", "W", "L"],
+})
+
+tied_runs = get_longest_streak_runs(
+    tied_streak_data,
+    "2025-26",
+    "Test Club",
+    "winning",
+)
+
+assert len(tied_runs) == 2
+assert [
+    run["match_number"].tolist()
+    for run in tied_runs
+] == [[1, 2], [4, 5]]
+
+print("Streak history calculations passed!")
+
 
 print("League records tests passed!")

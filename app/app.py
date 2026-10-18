@@ -31,6 +31,7 @@ from src.analysis.league_records import (
     build_club_records,
     get_match_extremes,
     get_club_biggest_wins,
+    get_longest_streak_runs,
 )
 
 RAW_DIR = ROOT / "data" / "raw"
@@ -1687,6 +1688,166 @@ with team_tab:
                     "share this record."
                 )
 
+    
+    # ======================================
+    # INTERACTIVE STREAK MATCH HISTORY
+    # ======================================
+
+    with st.expander(
+        "Explore Streak Match History",
+        expanded=False,
+    ):
+
+        st.caption(
+            "Explore the matches behind this club's "
+            "longest winning or unbeaten streak."
+        )
+
+        streak_options = {
+            "Winning Streak": "winning",
+            "Unbeaten Streak": "unbeaten",
+        }
+
+        selected_streak = st.segmented_control(
+            "Streak type",
+            options=list(streak_options.keys()),
+            default="Winning Streak",
+            key="club_streak_type",
+        )
+
+        streak_kind = streak_options[selected_streak]
+
+        record_runs = get_longest_streak_runs(
+            all_results,
+            team_season,
+            selected_team,
+            streak_type=streak_kind,
+        )
+
+        if not record_runs:
+
+            if streak_kind == "winning":
+                st.info(
+                    "No winning streak recorded "
+                    "for this club in the selected season."
+                )
+            else:
+                st.info(
+                    "No unbeaten streak recorded "
+                    "for this club in the selected season."
+                )
+
+        else:
+
+            record_length = len(record_runs[0])
+
+            st.markdown(
+                f"**Record: {record_length} consecutive "
+                f"{'wins' if streak_kind == 'winning' else 'matches unbeaten'}**"
+            )
+
+            # Allow users to explore tied record periods.
+            if len(record_runs) > 1:
+
+                st.caption(
+                    f"This record occurred "
+                    f"{len(record_runs)} times."
+                )
+
+                selected_run = st.selectbox(
+                    "Choose record period",
+                    options=list(range(len(record_runs))),
+                    format_func=lambda i: (
+                        f"Run {i + 1}: "
+                        f"Matches "
+                        f"{int(record_runs[i]['match_number'].iloc[0])}"
+                        "–"
+                        f"{int(record_runs[i]['match_number'].iloc[-1])}"
+                    ),
+                    key="club_streak_run",
+                )
+
+            else:
+                selected_run = 0
+
+            streak_matches = (
+                record_runs[selected_run].copy()
+            )
+
+            # ==================================
+            # FORMAT MATCH DETAILS
+            # ==================================
+
+            display_streak = streak_matches[
+                [
+                    "match_number",
+                    "match_date",
+                    "opponent",
+                    "location",
+                    "goals_for",
+                    "goals_against",
+                    "result",
+                ]
+            ].copy()
+
+            display_streak["match_date"] = (
+                pd.to_datetime(
+                    display_streak["match_date"]
+                ).dt.strftime("%d %b %Y")
+            )
+
+            # Score from the selected club's perspective.
+            display_streak["Score"] = (
+                display_streak["goals_for"]
+                .astype(int)
+                .astype(str)
+                + "–"
+                + display_streak["goals_against"]
+                .astype(int)
+                .astype(str)
+            )
+
+            display_streak = display_streak.rename(
+                columns={
+                    "match_number": "Match",
+                    "match_date": "Date",
+                    "opponent": "Opponent",
+                    "location": "Venue",
+                    "result": "Result",
+                }
+            )
+
+            st.dataframe(
+                display_streak[
+                    [
+                        "Match",
+                        "Date",
+                        "Opponent",
+                        "Venue",
+                        "Score",
+                        "Result",
+                    ]
+                ],
+                hide_index=True,
+                use_container_width=True,
+            )
+
+            first_match_date = pd.to_datetime(
+                streak_matches["match_date"].iloc[0]
+            ).strftime("%d %b %Y")
+
+            last_match_date = pd.to_datetime(
+                streak_matches["match_date"].iloc[-1]
+            ).strftime("%d %b %Y")
+
+            st.caption(
+                f"Record period: {first_match_date} "
+                f"to {last_match_date}. "
+                "Scores are shown from the selected "
+                "club's perspective."
+            )
+
+    
     st.caption(
         "Records reflect completed matches in the "
         "selected season, not all-time club records."
