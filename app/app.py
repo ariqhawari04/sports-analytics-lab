@@ -42,6 +42,8 @@ from src.analysis.league_records import (
     get_longest_streak_runs,
 )
 
+from feedback import render_feedback
+
 RAW_DIR = ROOT / "data" / "raw"
 
 BLUE = "#2563EB"
@@ -654,6 +656,13 @@ league_tab, team_tab, compare_tab, h2h_tab = st.tabs(
     ],
     key="main_nav",
 )
+
+# ==========================================
+# PRODUCT FEEDBACK — SAL v0.2.1
+# ==========================================
+
+st.divider()
+render_feedback(page="general")
 
 # ==========================================
 # TAB 1 — LEAGUE OVERVIEW
@@ -3344,7 +3353,6 @@ with h2h_tab:
             )
 
 
-
 # ==========================================
 # FOOTER & METHODOLOGY
 # ==========================================
@@ -3355,7 +3363,7 @@ footer_left, footer_right = st.columns([4, 1])
 
 with footer_left:
     st.caption(
-        "Sports Analytics Lab · v0.2 · Premier League 2015–2027"
+        "Sports Analytics Lab · v0.2.1 · Premier League 2015–2027"
     )
 
     # Visible data source attribution
