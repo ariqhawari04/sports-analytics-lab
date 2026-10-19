@@ -3,3 +3,4 @@ pandas
 plotly
 python-dotenv
 psycopg[binary]
+supabase==2.32.0
