@@ -42,6 +42,11 @@ from src.analysis.league_records import (
     get_longest_streak_runs,
 )
 
+from product_tracking import (
+    initialize_session_tracking,
+    track_active_tab,
+)
+
 from feedback import render_feedback
 
 RAW_DIR = ROOT / "data" / "raw"
@@ -643,6 +648,13 @@ st.html("""
 """)
 
 
+
+# ==========================================
+# PRODUCT ANALYTICS — SAL v0.2.2
+# ==========================================
+
+initialize_session_tracking()
+
 # ==========================================
 # MAIN NAVIGATION
 # ==========================================
@@ -655,7 +667,26 @@ league_tab, team_tab, compare_tab, h2h_tab = st.tabs(
         "Head-to-Head",
     ],
     key="main_nav",
+    on_change="rerun",
 )
+
+# ==========================================
+# FEATURE ENGAGEMENT TRACKING
+# ==========================================
+
+TAB_PAGES = {
+    "League Overview": "league_overview",
+    "Team Explorer": "team_explorer",
+    "Team Comparison": "team_comparison",
+    "Head-to-Head": "head_to_head",
+}
+
+active_tab = st.session_state.get(
+    "main_nav",
+    "League Overview",
+)
+
+track_active_tab(TAB_PAGES[active_tab])
 
 # ==========================================
 # PRODUCT FEEDBACK — SAL v0.2.1
@@ -3363,7 +3394,7 @@ footer_left, footer_right = st.columns([4, 1])
 
 with footer_left:
     st.caption(
-        "Sports Analytics Lab · v0.2.1 · Premier League 2015–2027"
+        "Sports Analytics Lab · v0.2.2 · Premier League 2015–2027"
     )
 
     # Visible data source attribution
