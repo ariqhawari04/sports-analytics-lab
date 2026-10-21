@@ -420,7 +420,10 @@ st.html("""
 # DATA
 # ==========================================
 
-@st.cache_data(ttl=900)
+@st.cache_data(
+    ttl=900,
+    show_spinner="Loading Premier League data...",
+)
 def load_matches():
 
     def get_credential(name):
@@ -3104,7 +3107,7 @@ with h2h_tab:
                 st.markdown(
                     f"""
                     <div class="h2h-card">
-                        <div class="h2h-card-title">{team_a}</div>
+                        <div class="h2h-card-title">{escape(str(team_a))}</div>
                         <div class="h2h-card-value">{team_a_wins}</div>
                         <div class="h2h-card-subtext">
                             {team_a_pct:.1f}% • {'win' if team_a_wins == 1 else 'wins'}
@@ -3132,7 +3135,7 @@ with h2h_tab:
                 st.markdown(
                     f"""
                     <div class="h2h-card">
-                        <div class="h2h-card-title">{team_b}</div>
+                        <div class="h2h-card-title">{escape(str(team_b))}</div>
                         <div class="h2h-card-value">{team_b_wins}</div>
                         <div class="h2h-card-subtext">
                             {team_b_pct:.1f}% • {'win' if team_b_wins == 1 else 'wins'}
@@ -3195,7 +3198,7 @@ with h2h_tab:
                     <div class="h2h-legend">
                         <div class="h2h-legend-item-left">
                             <span class="h2h-dot-a"></span>
-                            {team_a} wins
+                            {escape(str(team_a))} wins
                         </div>
                         <div class="h2h-legend-item-center">
                             <span class="h2h-dot-d"></span>
@@ -3203,7 +3206,7 @@ with h2h_tab:
                         </div>
                         <div class="h2h-legend-item-right">
                             <span class="h2h-dot-b"></span>
-                            {team_b} wins
+                            {escape(str(team_b))} wins
                         </div>
                     </div>
                 </div>
