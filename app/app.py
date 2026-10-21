@@ -3397,7 +3397,7 @@ footer_left, footer_right = st.columns([4, 1])
 
 with footer_left:
     st.caption(
-        "Sports Analytics Lab · v0.2.2 · Premier League 2015–2027"
+        "Sports Analytics Lab · v0.2.3 · Premier League 2015–2027"
     )
 
     # Visible data source attribution
