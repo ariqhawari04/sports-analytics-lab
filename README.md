@@ -32,7 +32,7 @@ And frankly, that's what has made the journey so rewarding.
 
 Sports Analytics Lab is an interactive sports analytics application designed to make sports data more accessible, understandable, and enjoyable to explore.
 
-**Version 0.2 focuses on the English Premier League**, covering 12 consecutive seasons:
+**Version 0.2.3 continues to focus on the English Premier League**, covering 12 consecutive seasons:
 
 - **2015/16–2025/26:** 11 completed Premier League seasons.
 - **2026/27:** The ongoing season, with periodically updated match results.
@@ -56,6 +56,20 @@ Key improvements include:
 - **Improved data validation:** Historical team-name normalisation, duplicate detection, automated calculation tests, and official points deduction adjustments.
 
 The goal is not simply to add more statistics, but to make it easier to understand the stories behind them.
+
+**A note on product analytics:** Sports Analytics Lab records session-level activity, such as session starts and feature views, to help understand how the application is used. These metrics represent Streamlit sessions rather than unique individual visitors. Ratings and written feedback are optional, with submissions accessible through the internal analytics dashboard.
+
+### Product Feedback & Analytics (v0.2.1–v0.2.3)
+
+Beyond football analytics, recent updates have also focused on understanding how visitors experience Sports Analytics Lab.
+
+- **v0.2.1 — User Feedback:** Introduced an optional rating and comment form, allowing visitors to share their experiences and suggest improvements.
+- **v0.2.2 — Product Engagement Tracking:** Added anonymous session and feature-view tracking to understand which parts of the application visitors explore.
+- **v0.2.3 — Internal Product Analytics:** Built a password-protected dashboard for reviewing recorded sessions, feature engagement, daily activity, rating distributions, and recent feedback.
+
+The internal dashboard includes date-range filtering and is intended for project administration rather than public access.
+
+These additions help guide future improvements based on actual product usage and visitor feedback.
 
 ---
 
@@ -260,7 +274,7 @@ I'm not trying to build everything at once.
 
 **My goal is to keep learning, keep experimenting, and gradually turn this small personal project into a richer sports analytics platform.**
 
-Version 0.2 represents another step in that journey, but there's still so much more I'd love to explore.
+Version 0.2.3 represents another step in that journey, but there's still so much more I'd love to explore.
 
 ---
 
@@ -276,6 +290,6 @@ Whether it's a feature suggestion, an interesting analytical question, or an ide
 
 ---
 
-**Sports Analytics Lab · Version 0.2**
+**Sports Analytics Lab · Version 0.2.3**
 
 *An independent personal project. Not affiliated with the Premier League or its clubs.*
