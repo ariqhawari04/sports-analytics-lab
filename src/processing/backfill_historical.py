@@ -234,6 +234,7 @@ def upload_historical_data(df):
 
     for row in df.itertuples(index=False):
         records.append({
+            "league_code": "PL",
             "source": "openfootball",
             "season": str(row.season),
             "source_game_id": None,
@@ -248,9 +249,13 @@ def upload_historical_data(df):
     for start in range(0, len(records), 100):
         batch = records[start:start + 100]
 
+
         client.table("app_matches").upsert(
             batch,
-            on_conflict="season,home_team,away_team",
+            on_conflict=(
+                "league_code,season,"
+                "home_team,away_team,match_date"
+            ),
         ).execute()
 
         print(

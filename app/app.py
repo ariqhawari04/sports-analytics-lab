@@ -58,6 +58,49 @@ SLATE = "#64748B"
 PALETTE = [BLUE, GREEN, "#F59E0B", "#8B5CF6", RED]
 
 
+# ==========================================
+# SAL v0.3 — LEAGUE CONTEXT
+# ==========================================
+
+LEAGUE_NAMES = {
+    "PL": "Premier League",
+    "BL1": "Bundesliga",
+    "PD": "La Liga",
+    "SA": "Serie A",
+    "FL1": "Ligue 1",
+}
+
+league_code = st.query_params.get("league", "PL")
+
+if league_code not in LEAGUE_NAMES:
+    league_code = "PL"
+
+league_name = LEAGUE_NAMES[league_code]
+
+# Reset filters that might contain clubs or seasons
+# from the previously selected league.
+if st.session_state.get("_sal_active_league") != league_code:
+    filter_keys = [
+        "league_season",
+        "team_season",
+        "team_club",
+        "team_compare_seasons",
+        "team_compare_match_limit",
+        "tc_season",
+        "tc_clubs",
+        "tc_form_match_range",
+        "h2h_team_a",
+        "h2h_team_b",
+        "h2h_seasons",
+    ]
+
+    for key in filter_keys:
+        st.session_state.pop(key, None)
+
+    st.session_state["_sal_active_league"] = league_code
+
+
+
 st.set_page_config(
     page_title="Sports Analytics Lab",
     page_icon="⚽",
@@ -422,27 +465,68 @@ st.html("""
 
 @st.cache_data(
     ttl=900,
-    show_spinner="Loading Premier League data...",
+    max_entries=7,
+    show_spinner=False,
 )
-def load_matches():
+def load_matches(selected_league):
 
-    def get_credential(name):
-        return (
-            os.getenv(name)
-            or st.secrets[name]
+    # EPL continues using Supabase.
+    if selected_league == "PL":
+
+        def get_credential(name):
+            return (
+                os.getenv(name)
+                or st.secrets[name]
+            )
+
+        df = fetch_app_matches(
+            host=get_credential("SUPABASE_POOLER_HOST"),
+            user=get_credential("SUPABASE_READER_USER"),
+            password=get_credential("SUPABASE_READER_PASSWORD"),
         )
 
-    return fetch_app_matches(
-        host=get_credential("SUPABASE_POOLER_HOST"),
-        user=get_credential("SUPABASE_READER_USER"),
-        password=get_credential("SUPABASE_READER_PASSWORD"),
+        return df.loc[
+            df["league_code"] == "PL"
+        ].copy()
+
+    # Other leagues use validated local CSV
+    # during v0.3 development.
+    preview_path = (
+        ROOT / "data" / "processed"
+        / "multi_league_historical_preview.csv"
     )
+
+    if not preview_path.exists():
+        raise FileNotFoundError(
+            "Run the multi-league historical "
+            "builder before opening this league."
+        )
+
+    df = pd.read_csv(
+        preview_path,
+        parse_dates=["match_date"],
+    )
+
+    df = df.loc[
+        df["league_code"] == selected_league
+    ].copy()
+
+    if df.empty:
+        raise ValueError(
+            f"No available data for {selected_league}"
+        )
+
+    df["season_label"] = df["season"]
+
+    return df
+
 
 
 
 
 def build_team_results(matches):
     home = pd.DataFrame({
+        "league_code": matches["league_code"],
         "season": matches["season_label"],
         "matchweek": matches["matchweek"],
         "match_date": matches["match_date"],
@@ -454,6 +538,7 @@ def build_team_results(matches):
     })
 
     away = pd.DataFrame({
+        "league_code": matches["league_code"],
         "season": matches["season_label"],
         "matchweek": matches["matchweek"],
         "match_date": matches["match_date"],
@@ -481,10 +566,18 @@ def build_team_results(matches):
     })
 
     results = results.sort_values([
-        "season", "team", "match_date", "matchweek"
+        "league_code",
+        "season",
+        "team",
+        "match_date",
+        "matchweek",
     ]).copy()
 
-    groups = results.groupby(["season", "team"])
+    groups = results.groupby([
+        "league_code",
+        "season",
+        "team",
+    ])
 
     results["cumulative_points"] = (
         groups["points"].cumsum()
@@ -531,9 +624,12 @@ def style_chart(fig, height=420):
     return fig
 
 
-def show_recent_form(team_results):
+def show_recent_form(team_results, league_name):
     st.subheader("Recent Form")
-    st.caption("Your team's latest Premier League results")
+    st.caption(
+        f"Your team's latest {league_name} results"
+    )
+
 
     window = st.segmented_control(
         "Show",
@@ -613,7 +709,7 @@ def show_recent_form(team_results):
 if SAL_PERF:
     db_start = time.perf_counter()
 
-matches = load_matches()
+matches = load_matches(league_code)
 
 if SAL_PERF:
     db_seconds = time.perf_counter() - db_start
@@ -639,16 +735,88 @@ if SAL_PERF:
 # BRAND HEADER
 # ==========================================
 
+
+# ==========================================
+# SAL v0.3 — GLOBAL NAVBAR
+# ==========================================
+
 st.html("""
-<div class="sal-topbar">
-    <h1 class="sal-brand">
-        Sports Analytics Lab<span>.</span>
-    </h1>
-    <p class="sal-tagline">
-        There's more to the game than just the score.
-    </p>
-</div>
+<style>
+.st-key-sal_header {
+    border-bottom: 1px solid #E2E8F0;
+    padding: 8px 0 20px;
+    margin-bottom: 16px;
+}
+
+.st-key-sal_header .sal-brand {
+    color: #0F172A;
+    font-size: clamp(1.8rem, 2.8vw, 2.65rem);
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    line-height: 1.15;
+    margin: 0;
+}
+
+.st-key-sal_header .sal-brand span {
+    color: #2563EB;
+}
+
+.st-key-sal_header button {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #0F172A !important;
+    font-weight: 600 !important;
+}
+
+.st-key-sal_header button:hover {
+    background: #EAF0F7 !important;
+}
+</style>
 """)
+
+with st.container(key="sal_header"):
+
+    brand_col, menu_col = st.columns(
+        [5, 2],
+        gap="small",
+        vertical_alignment="center",
+    )
+
+    with brand_col:
+        st.html(
+            '<h1 class="sal-brand">'
+            'Sports Analytics Lab<span>.</span>'
+            '</h1>'
+        )
+
+
+    with menu_col:
+        with st.container(
+            horizontal=True,
+            horizontal_alignment="right",
+            vertical_alignment="center",
+        ):
+            selected_league = st.menu_button(
+                f"Football / {league_name}",
+                options=[
+                    code for code in LEAGUE_NAMES
+                    if code != league_code
+                ],
+                format_func=lambda code: LEAGUE_NAMES[code],
+                type="tertiary",
+                width="content",
+                key="sal_league_menu",
+            )
+
+
+if selected_league is not None:
+    st.query_params.from_dict({
+        "sport": "football",
+        "league": selected_league,
+    })
+    st.rerun()
+
 
 
 
@@ -703,7 +871,7 @@ render_feedback(page="general")
 # ==========================================
 
 with league_tab:
-    st.header("Premier League Overview")
+    st.header(f"{league_name} Overview")
     st.write(
         "Explore league standings and season performance."
     )
@@ -716,7 +884,7 @@ with league_tab:
             SEASONS,
             index=SEASONS.index(LATEST_SEASON),
             format_func=lambda s: s.replace("-", "/"),
-            key="league_season",
+            key=f"league_season_{league_code}",
         )
 
     league_matches = matches[
@@ -749,7 +917,7 @@ with league_tab:
     )
     c3.metric("Latest result", latest_date)
 
-    
+
     st.subheader("League Table")
 
     # ======================================
@@ -1084,14 +1252,13 @@ with league_tab:
     # OFFICIAL POINTS DEDUCTIONS
     # ======================================
 
-    if league_season == "2023-24":
+    if league_code == "PL" and league_season == "2023-24":
         st.caption(
             "Official points include deductions: "
             "Everton FC (−8) and "
             "Nottingham Forest FC (−4)."
         )
 
-    
     # ======================================
     # SEASON RECORDS & INSIGHTS
     # ======================================
@@ -1102,7 +1269,7 @@ with league_tab:
 
     st.caption(
         "Standout performances and match records "
-        "from the selected Premier League season."
+        f"from the selected {league_name} season."
     )
 
     club_records = build_club_records(
@@ -1281,7 +1448,7 @@ with league_tab:
     # DETAILED CLUB LEADERBOARD
     # ==================================
 
-    
+
 
     # ======================================
     # INTERACTIVE SEASON RECORDS LEADERBOARD
@@ -1499,7 +1666,7 @@ with league_tab:
             )
 
     st.caption(
-        "Records are based on completed Premier League "
+        f"Records are based on completed {league_name} "
         "matches in the selected season. Home and away "
         "PPG are calculated from matches played at each "
         "venue; early-season comparisons may involve "
@@ -1526,7 +1693,7 @@ with team_tab:
             SEASONS,
             index=SEASONS.index(LATEST_SEASON),
             format_func=lambda s: s.replace("-", "/"),
-            key="team_season",
+            key=f"team_season_{league_code}",
         )
 
     team_season_results = all_results[
@@ -1548,7 +1715,7 @@ with team_tab:
             "Club",
             team_options,
             index=default_team,
-            key="team_club",
+            key=f"team_club_{league_code}_{team_season}",
         )
 
     team_results = team_season_results[
@@ -1651,11 +1818,11 @@ with team_tab:
         )
 
     with right:
-        show_recent_form(team_results)
+        show_recent_form(team_results, league_name)
 
     st.divider()
 
-    
+
     # ======================================
     # CLUB RECORDS & MILESTONES
     # ======================================
@@ -1763,7 +1930,7 @@ with team_tab:
                     "share this record."
                 )
 
-    
+
     # ======================================
     # INTERACTIVE STREAK MATCH HISTORY
     # ======================================
@@ -1922,7 +2089,7 @@ with team_tab:
                 "club's perspective."
             )
 
-    
+
     st.caption(
         "Records reflect completed matches in the "
         "selected season, not all-time club records."
@@ -1953,7 +2120,7 @@ with team_tab:
             width="stretch"
         )
 
-    
+
     # ======================================
     # COMPARE ACROSS SEASONS
     # ======================================
@@ -1962,7 +2129,7 @@ with team_tab:
 
         st.caption(
             f"Compare {selected_team}'s points progression "
-            "across different Premier League seasons."
+            f"across different {league_name} seasons."
         )
 
         # Use the club selected in Team Explorer.
@@ -1982,7 +2149,7 @@ with team_tab:
             options=available_seasons,
             default=available_seasons[-5:],
             format_func=lambda s: s.replace("-", "/"),
-            key="team_compare_seasons",
+            key=f"team_compare_seasons_{league_code}_{selected_team}",
         )
 
         if not compare_seasons:
@@ -2008,7 +2175,7 @@ with team_tab:
                     "First N matches",
                 ],
                 default="Full available seasons",
-                key="team_compare_view",
+                key=f"team_compare_view_{league_code}_{selected_team}",
             )
 
             if compare_view == "First N matches":
@@ -2023,7 +2190,7 @@ with team_tab:
                         min_value=1,
                         max_value=max_common,
                         value=max_common,
-                        key="team_compare_match_limit",
+                        key=f"team_compare_match_limit_{league_code}_{selected_team}",
                     )
                 else:
                     n_matches = 1
@@ -2146,7 +2313,7 @@ with compare_tab:
     st.header("Team Comparison")
 
     st.write(
-        "Compare Premier League clubs across season statistics, "
+        f"Compare {league_name} clubs across season statistics, "
         "points progression, attacking and defensive performance, "
         "and recent form."
     )
@@ -2163,7 +2330,7 @@ with compare_tab:
             SEASONS,
             index=SEASONS.index(LATEST_SEASON),
             format_func=lambda s: s.replace("-", "/"),
-            key="tc_season",
+            key=f"tc_season_{league_code}",
         )
 
     season_data = all_results[
@@ -2193,7 +2360,7 @@ with compare_tab:
         options=available_clubs,
         default=default_clubs,
         max_selections=4,
-        key="tc_clubs",
+        key=f"tc_clubs_{league_code}_{comparison_season}",
     )
 
     if len(selected_clubs) < 2:
@@ -2284,7 +2451,7 @@ with compare_tab:
             ])
 
         statistics_df = pd.DataFrame(statistics)
-        
+
         # Ensure consistent types for Arrow serialization.
         for club in selected_clubs:
             statistics_df[club] = (
@@ -2486,8 +2653,8 @@ with compare_tab:
             key="tc_goals_chart",
         )
 
-        
-        
+
+
         # ==================================
         # 4. FORM TIMELINE
         # ==================================
@@ -2527,7 +2694,7 @@ with compare_tab:
                 max_value=max_common,
                 value=(default_start, max_common),
                 step=1,
-                key="tc_form_match_range",
+                key=f"tc_form_match_range_{league_code}_{comparison_season}",
             )
 
         else:
@@ -2873,7 +3040,7 @@ with compare_tab:
         st.caption(
             "Match order refers to each club's "
             "chronological sequence of completed "
-            "Premier League fixtures, not official "
+            f"{league_name} fixtures, not official "
             "gameweek numbers."
         )
 
@@ -2888,7 +3055,7 @@ with h2h_tab:
     st.header("Head-to-Head Explorer")
 
     st.write(
-        "Explore previous Premier League meetings "
+        f"Explore previous {league_name} meetings "
         "between two clubs."
     )
 
@@ -2914,7 +3081,7 @@ with h2h_tab:
             "First club",
             all_clubs,
             index=default_a,
-            key="h2h_team_a",
+            key=f"h2h_team_a_{league_code}",
         )
 
     with col_b:
@@ -2938,7 +3105,7 @@ with h2h_tab:
             "Second club",
             available_opponents,
             index=default_b,
-            key="h2h_team_b",
+           key=f"h2h_team_b_{league_code}_{team_a}",
         )
 
     # ======================================
@@ -2950,7 +3117,7 @@ with h2h_tab:
         options=SEASONS,
         default=SEASONS[-5:],
         format_func=lambda s: s.replace("-", "/"),
-        key="h2h_seasons",
+        key=f"h2h_seasons_{league_code}",
     )
 
     if not selected_seasons:
@@ -2970,7 +3137,7 @@ with h2h_tab:
 
         if meetings.empty:
             st.info(
-                "No completed Premier League meetings "
+                f"No completed {league_name} meetings "
                 "found for these clubs in the "
                 "selected seasons."
             )
@@ -3145,7 +3312,7 @@ with h2h_tab:
                     unsafe_allow_html=True,
                 )
 
-            
+
             # ==================================
             # COMPACT RESULT SPLIT BAR
             # ==================================
@@ -3239,8 +3406,8 @@ with h2h_tab:
                 )
 
             st.info(insight)
-            
-            
+
+
             # ==================================
             # PREVIOUS MEETINGS
             # ==================================
@@ -3382,7 +3549,7 @@ with h2h_tab:
 
             st.caption(
                 "Statistics are calculated from completed "
-                "Premier League meetings available in "
+                f"{league_name} meetings available in "
                 "Sports Analytics Lab, not all-time records."
             )
 
@@ -3395,16 +3562,36 @@ st.divider()
 
 footer_left, footer_right = st.columns([4, 1])
 
+
 with footer_left:
+
+    # Display a single season or a season range.
+    if len(SEASONS) == 1:
+        season_text = SEASONS[0].replace("-", "/")
+    else:
+        season_text = (
+            f"{SEASONS[0].replace('-', '/')}–"
+            f"{SEASONS[-1].replace('-', '/')}"
+        )
+
     st.caption(
-        "Sports Analytics Lab · v0.2.3 · Premier League 2015–2027"
+        f"Sports Analytics Lab · v0.3 Preview · "
+        f"{league_name} · {season_text}"
     )
 
-    # Visible data source attribution
-    st.caption(
-        "Football data provided by the Football-Data.org API "
-        "· Historical results: OpenFootball (CC0)"
-    )
+    # Source attribution follows the selected league.
+    if league_code == "PL":
+        st.caption(
+            "Current-season results: football-data.org API "
+            "· Historical results: OpenFootball (CC0)"
+        )
+    else:
+        st.caption(
+            "Historical results: OpenFootball (CC0) "
+            "· Local preview dataset"
+        )
+
+
 
 with footer_right:
     with st.popover(
@@ -3412,19 +3599,20 @@ with footer_right:
         type="tertiary",
         key="sal_methodology",
     ):
-        
-        st.markdown(
-            """
+
+        if league_code == "PL":
+            st.markdown("""
             **Data sources**
 
-            - **2015/16–2025/26:** OpenFootball (CC0 / public domain)
+            - **2015/16–2025/26:** OpenFootball (CC0)
             - **2026/27:** football-data.org API
 
             **Data freshness**
 
-            Current-season results are retrieved through
-            scheduled GitHub Actions workflows and stored
-            in Supabase PostgreSQL.
+            Current-season results are retrieved
+            through scheduled GitHub Actions
+            workflows and stored in Supabase
+            PostgreSQL.
 
             Updates are periodic, not real-time.
 
@@ -3434,17 +3622,17 @@ with footer_right:
             - Draw = 1 point
             - Loss = 0 points
 
-            Official standings account for the final
-            2023/24 points deductions:
+            Premier League 2023/24 standings
+            account for the final points deductions:
             Everton FC (8 points) and
             Nottingham Forest FC (4 points).
 
-            Points progression represents points earned
-            from match results, before deductions.
+            Points progression shows points earned
+            from match results before deductions.
 
             **Cross-season comparison**
 
-            Teams are compared by matches played,
+            Clubs are compared by matches played,
             not calendar dates.
 
             **Limitations**
@@ -3453,10 +3641,60 @@ with footer_right:
             by Sports Analytics Lab.
 
             Strength of schedule is not adjusted.
-            Additional official league tie-breakers
+            Additional official tie-breakers
             are not implemented.
-            """
-        )
+            """)
+
+        else:
+            st.markdown(f"""
+            **Data source**
+
+            OpenFootball (CC0 / public domain).
+
+            **Competition**
+
+            {league_name}
+
+            **Available seasons**
+
+            {season_text}
+
+            **Data freshness**
+
+            Historical completed match results
+            are loaded from a locally generated
+            and validated CSV dataset.
+
+            This is not a live data feed.
+
+            **Points calculation**
+
+            - Win = 3 points
+            - Draw = 1 point
+            - Loss = 0 points
+
+            Points progression shows cumulative
+            points earned from match results.
+
+            **Cross-season comparison**
+
+            Clubs are compared by matches played,
+            not calendar dates.
+
+            **Limitations**
+
+            Standings are calculated independently
+            by Sports Analytics Lab.
+
+            League-specific official tie-breakers,
+            disciplinary point adjustments,
+            and strength-of-schedule adjustments
+            are not fully implemented.
+
+            Tables may differ from official
+            standings where these rules apply.
+            """)
+
 
 
 

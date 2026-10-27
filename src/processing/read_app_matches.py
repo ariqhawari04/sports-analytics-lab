@@ -24,6 +24,10 @@ def fetch_app_matches(host, user, password):
         with conn.cursor() as cursor:
             cursor.execute("""
                 SELECT
+                    COALESCE(
+                        to_jsonb(m)->>'league_code',
+                        'PL'
+                    ) AS league_code,
                     season,
                     source,
                     match_date,
@@ -32,7 +36,7 @@ def fetch_app_matches(host, user, password):
                     away_team,
                     home_goals,
                     away_goals
-                FROM public.app_matches
+                FROM public.app_matches AS m
                 ORDER BY season, match_date, id
             """)
 
@@ -47,9 +51,11 @@ def fetch_app_matches(host, user, password):
 
     # Validate fixture uniqueness
     if df.duplicated([
+        "league_code",
         "season",
         "home_team",
         "away_team",
+        "match_date",
     ]).any():
         raise ValueError(
             "Duplicate fixtures found"
@@ -75,6 +81,7 @@ def fetch_app_matches(host, user, password):
         )
 
     required = [
+        "league_code",
         "season",
         "match_date",
         "matchweek",

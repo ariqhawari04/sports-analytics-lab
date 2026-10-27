@@ -67,6 +67,7 @@ def load_app_matches():
         ).date().isoformat()
 
         record = {
+            "league_code": "PL",
             "source": str(row["source"]),
             "season": str(row["season"]),
             "source_game_id": (
@@ -95,7 +96,10 @@ def load_app_matches():
 
         client.table("app_matches").upsert(
             batch,
-            on_conflict="season,home_team,away_team",
+            on_conflict=(
+                "league_code,season,"
+                "home_team,away_team,match_date"
+            ),
         ).execute()
 
         print(
