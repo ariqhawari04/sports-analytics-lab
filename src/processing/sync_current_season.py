@@ -70,6 +70,7 @@ def sync_current_season(apply=False):
     for match in df.itertuples(index=False):
 
         records.append({
+            "league_code": "PL",
             "season": SEASON,
             "source": "football-data.org",
             "source_game_id": str(match.game_id),
@@ -90,9 +91,10 @@ def sync_current_season(apply=False):
     response = (
         client.table("app_matches")
         .select(
-            "source_game_id,match_date,matchweek,"
+            "league_code,source_game_id,match_date,matchweek,"
             "home_team,away_team,home_goals,away_goals"
         )
+        .eq("league_code", "PL")
         .eq("season", SEASON)
         .limit(1000)
         .execute()
@@ -132,6 +134,18 @@ def sync_current_season(apply=False):
         )
 
         previous = existing_by_fixture.get(fixture_key)
+
+        # A date change needs explicit review because
+        # match_date is part of the new unique key.
+        if previous is not None and (
+            str(previous["match_date"])
+            != record["match_date"]
+        ):
+            raise ValueError(
+                "Match date changed for match ID "
+                f"{record['source_game_id']}. "
+                "Review before syncing."
+            )
 
         # Detect a renamed fixture with an existing ID.
         previous_id = existing_by_id.get(
@@ -183,7 +197,10 @@ def sync_current_season(apply=False):
             client.table("app_matches")
             .upsert(
                 batch,
-                on_conflict="season,home_team,away_team",
+                on_conflict=(
+                    "league_code,season,"
+                    "home_team,away_team,match_date"
+                ),
             )
             .execute()
         )
