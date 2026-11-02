@@ -1,5 +1,5 @@
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
 import time
 
@@ -20,7 +20,6 @@ SAL_PERF = os.getenv("SAL_PERF", "0") == "1"
 
 if SAL_PERF:
     perf_start = time.perf_counter()
-
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -463,64 +462,61 @@ st.html("""
 # DATA
 # ==========================================
 
+
+@st.cache_data(
+    ttl=900,
+    max_entries=1,
+    show_spinner=False,
+)
+def load_all_matches():
+    """Fetch all leagues from production Supabase."""
+
+    def get_credential(name):
+        return os.getenv(name) or st.secrets[name]
+
+    df = fetch_app_matches(
+        host=get_credential("SUPABASE_POOLER_HOST"),
+        user=get_credential("SUPABASE_READER_USER"),
+        password=get_credential("SUPABASE_READER_PASSWORD"),
+    )
+
+    supported = {"PL", "BL1", "PD", "SA", "FL1"}
+
+    if not supported.issubset(set(df["league_code"])):
+        raise ValueError(
+            "Production database is missing league data."
+        )
+
+    return df
+
+
 @st.cache_data(
     ttl=900,
     max_entries=7,
     show_spinner=False,
 )
 def load_matches(selected_league):
+    """Return matches for the selected league."""
 
-    # EPL continues using Supabase.
-    if selected_league == "PL":
+    supported = {"PL", "BL1", "PD", "SA", "FL1"}
 
-        def get_credential(name):
-            return (
-                os.getenv(name)
-                or st.secrets[name]
-            )
-
-        df = fetch_app_matches(
-            host=get_credential("SUPABASE_POOLER_HOST"),
-            user=get_credential("SUPABASE_READER_USER"),
-            password=get_credential("SUPABASE_READER_PASSWORD"),
+    if selected_league not in supported:
+        raise ValueError(
+            f"Unsupported league: {selected_league}"
         )
 
-        return df.loc[
-            df["league_code"] == "PL"
-        ].copy()
+    df = load_all_matches()
 
-    # Other leagues use validated local CSV
-    # during v0.3 development.
-    preview_path = (
-        ROOT / "data" / "processed"
-        / "multi_league_historical_preview.csv"
-    )
-
-    if not preview_path.exists():
-        raise FileNotFoundError(
-            "Run the multi-league historical "
-            "builder before opening this league."
-        )
-
-    df = pd.read_csv(
-        preview_path,
-        parse_dates=["match_date"],
-    )
-
-    df = df.loc[
+    selected = df.loc[
         df["league_code"] == selected_league
     ].copy()
 
-    if df.empty:
+    if selected.empty:
         raise ValueError(
-            f"No available data for {selected_league}"
+            f"No matches found for {selected_league}"
         )
 
-    df["season_label"] = df["season"]
-
-    return df
-
-
+    return selected
 
 
 
