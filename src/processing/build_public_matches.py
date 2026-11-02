@@ -24,6 +24,15 @@ COLUMNS = [
 HISTORICAL_SEASONS = ["2024-25", "2025-26"]
 
 
+LEAGUE_FILES = {
+    "PL": "en.1",
+    "BL1": "de.1",
+    "PD": "es.1",
+    "SA": "it.1",
+    "FL1": "fr.1",
+}
+
+
 def extract_score(value):
     if isinstance(value, dict):
         value = value.get("ft")
@@ -38,8 +47,15 @@ def extract_score(value):
     return value[0], value[1]
 
 
-def load_openfootball(season):
-    url = f"{BASE_URL}/{season}/en.1.json"
+def load_openfootball(season, league_code="PL"):
+    if league_code not in LEAGUE_FILES:
+        raise ValueError(
+            f"Unsupported league code: {league_code}"
+        )
+
+    filename = LEAGUE_FILES[league_code]
+    url = f"{BASE_URL}/{season}/{filename}.json"
+
 
     response = requests.get(url, timeout=30)
     response.raise_for_status()

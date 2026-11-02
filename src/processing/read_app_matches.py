@@ -4,7 +4,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 
-def fetch_app_matches(host, user, password):
+def fetch_app_matches(host, user, password, league_code=None):
     """
     Read match data using a restricted
     PostgreSQL account.
@@ -22,21 +22,57 @@ def fetch_app_matches(host, user, password):
     ) as conn:
 
         with conn.cursor() as cursor:
-            cursor.execute("""
+            query = """
                 SELECT
-                    season,
-                    source,
-                    match_date,
-                    matchweek,
-                    home_team,
-                    away_team,
-                    home_goals,
-                    away_goals
-                FROM public.app_matches
-                ORDER BY season, match_date, id
-            """)
+                    COALESCE(
+                        to_jsonb(m)->>'league_code',
+                        'PL'
+                    ) AS league_code,
+                    m.season,
+                    m.source,
+                    m.match_date,
+                    m.matchweek,
+                    m.home_team,
+                    m.away_team,
+                    m.home_goals,
+                    m.away_goals
+                FROM public.app_matches AS m
+            """
 
+            params = ()
+
+            if league_code == "PL":
+                # Compatible with old EPL schema.
+                query += """
+                    WHERE COALESCE(
+                        to_jsonb(m)->>'league_code',
+                        'PL'
+                    ) = %s
+                """
+                params = ("PL",)
+
+            elif league_code in {"BL1", "PD", "SA", "FL1"}:
+                # Uses the indexed league_code column.
+                query += """
+                    WHERE m.league_code = %s
+                """
+                params = (league_code,)
+
+            elif league_code is not None:
+                raise ValueError(
+                    f"Unsupported league: {league_code}"
+                )
+
+            query += """
+                ORDER BY
+                    m.season,
+                    m.match_date,
+                    m.id
+            """
+
+            cursor.execute(query, params)
             records = cursor.fetchall()
+
 
     if not records:
         raise ValueError(
@@ -47,9 +83,11 @@ def fetch_app_matches(host, user, password):
 
     # Validate fixture uniqueness
     if df.duplicated([
+        "league_code",
         "season",
         "home_team",
         "away_team",
+        "match_date",
     ]).any():
         raise ValueError(
             "Duplicate fixtures found"
@@ -75,6 +113,7 @@ def fetch_app_matches(host, user, password):
         )
 
     required = [
+        "league_code",
         "season",
         "match_date",
         "matchweek",
