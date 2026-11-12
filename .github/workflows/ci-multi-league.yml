@@ -4,6 +4,7 @@ name: SAL Multi-League CI
 on:
   push:
     branches:
+      - main
       - feature/multi-league
 
   pull_request:

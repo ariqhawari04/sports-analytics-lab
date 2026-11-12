@@ -3571,7 +3571,7 @@ with footer_left:
         )
 
     st.caption(
-        f"Sports Analytics Lab · v0.3 Preview · "
+        f"Sports Analytics Lab · v0.3.0 · "
         f"{league_name} · {season_text}"
     )
 
@@ -3584,9 +3584,8 @@ with footer_left:
     else:
         st.caption(
             "Historical results: OpenFootball (CC0) "
-            "· Local preview dataset"
+            "· Stored in Supabase PostgreSQL"
         )
-
 
 
 with footer_right:
@@ -3658,10 +3657,14 @@ with footer_right:
             **Data freshness**
 
             Historical completed match results
-            are loaded from a locally generated
-            and validated CSV dataset.
+            are sourced from OpenFootball,
+            validated through the SAL data
+            pipeline, and stored in Supabase
+            PostgreSQL.
 
-            This is not a live data feed.
+            These datasets represent completed
+            historical seasons and are not
+            updated in real time.
 
             **Points calculation**
 

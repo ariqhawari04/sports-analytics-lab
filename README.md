@@ -32,14 +32,36 @@ And frankly, that's what has made the journey so rewarding.
 
 Sports Analytics Lab is an interactive sports analytics application designed to make sports data more accessible, understandable, and enjoyable to explore.
 
-**Version 0.2.3 continues to focus on the English Premier League**, covering 12 consecutive seasons:
+**Version 0.3 expands Sports Analytics Lab to five European football leagues**, bringing league-specific analysis into a single interactive platform.
 
-- **2015/16–2025/26:** 11 completed Premier League seasons.
-- **2026/27:** The ongoing season, with periodically updated match results.
+The current data coverage includes:
 
-Rather than simply displaying match results, the application allows users to explore league performance, examine individual clubs, compare teams across seasons, and investigate historical head-to-head records.
+- **Premier League:** 2015/16–2025/26, plus the ongoing 2026/27 season.
+- **Bundesliga:** 2023/24–2024/25.
+- **La Liga:** 2023/24.
+- **Serie A:** 2023/24.
+- **Ligue 1:** 2023/24–2024/25.
 
-All analyses are built from match-level data, with interactive filters and visualisations designed for both desktop and mobile exploration.
+Premier League results are updated periodically during the ongoing season. The other four leagues currently use validated historical match results.
+
+Users can seamlessly switch between competitions while retaining the same four-tab analytics experience.
+
+### What's New in v0.3?
+
+Version 0.3 marks a major step forward for Sports Analytics Lab, expanding the application beyond the English Premier League.
+
+Key improvements include:
+
+- **Five European Leagues:** Added Bundesliga, La Liga, Serie A, and Ligue 1 alongside the existing Premier League coverage.
+- **Seamless League Navigation:** Introduced a compact league selector in the main header, with shareable league-specific URLs.
+- **Consistent Analytics Experience:** Extended League Overview, Team Explorer, Team Comparison, and Head-to-Head to all supported competitions.
+- **Unified PostgreSQL Database:** Consolidated match data from all five leagues in Supabase, with league-aware queries and caching.
+- **Automated Regression Testing:** Introduced multi-league validation tests and GitHub Actions CI to help prevent cross-league data contamination and calculation errors.
+- **Preserved Premier League Updates:** Maintained the existing scheduled ingestion pipeline for the ongoing EPL season.
+
+This release establishes a more scalable foundation for future cross-league analysis, player analytics, and additional sports.
+
+Historical coverage currently varies by competition, and direct cross-league team comparisons are not yet available.
 
 ### What's New in v0.2?
 
@@ -77,7 +99,7 @@ These additions help guide future improvements based on actual product usage and
 
 ### 1. League Overview
 
-Explore how Premier League clubs perform within a selected season.
+Explore how clubs perform within the selected league and season.
 
 Features include:
 
@@ -88,11 +110,11 @@ Features include:
 - Highest-scoring matches and biggest victories.
 - Interactive club rankings with league-average benchmarks.
 
-Historical points deductions are incorporated where applicable, ensuring that league standings reflect verified official adjustments.
+Verified historical Premier League points deductions are incorporated where applicable. League-specific official tie-breakers and disciplinary adjustments are not yet fully implemented for all competitions.
 
 ### 2. Team Explorer
 
-Take a closer look at an individual club's performance during a selected Premier League season.
+Take a closer look at an individual club's performance within the selected league and season.
 
 ![Sports Analytics Lab - Team Explorer](docs/images/team-explorer.png)
 
@@ -112,7 +134,7 @@ The Team Explorer aims to move beyond a team's final league position and help ex
 
 ### 3. Team Comparison
 
-Compare two to four Premier League clubs within the same season.
+Compare two to four clubs from the same selected league and season.
 
 ![Sports Analytics Lab - Team Comparison](docs/images/team-comparison.png)
 
@@ -131,7 +153,7 @@ These features make it possible to examine differences in performance, consisten
 
 ### 4. Head-to-Head Explorer
 
-Explore historical Premier League meetings between two clubs across selected seasons.
+Explore previous meetings between two clubs within the selected league, across available seasons.
 
 ![Sports Analytics Lab - Head-to-Head](docs/images/head-to-head.png)
 
@@ -159,12 +181,12 @@ The system combines historical datasets, external APIs, Python-based processing,
 
 ### 1. Data Collection & Integration
 
-Premier League match data is collected from two primary sources:
+Match-level results are collected from two primary sources:
 
-- **OpenFootball:** Historical match results from completed Premier League seasons.
+- **OpenFootball:** Historical match results for the Premier League, Bundesliga, La Liga, Serie A, and Ligue 1.
 - **football-data.org:** Match results for the ongoing Premier League season.
 
-Data from these sources is standardised into a consistent match-level structure.
+Data from these sources is standardised into a common match-level structure with league and season identifiers.
 
 ### 2. Data Processing & Validation
 
@@ -240,13 +262,13 @@ Sports Analytics Lab currently uses the following data sources:
 
 **[OpenFootball](https://github.com/openfootball/football.json)**
 
-Historical Premier League match results from 2015/16 through 2025/26. The dataset is provided under CC0/public-domain terms.
+Historical Premier League match results from 2015/16 through 2025/26, Bundesliga and Ligue 1 results from 2023/24 through 2024/25, and La Liga and Serie A results for 2023/24. These datasets are provided under CC0/public-domain terms.
 
 **[football-data.org](https://www.football-data.org/)**
 
 Premier League 2026/27 match results, retrieved through the provider's API in accordance with its usage terms.
 
-The application focuses on completed Premier League matches. Scheduled matches without final results are not included in match-performance calculations.
+The application focuses on completed matches within the selected league. Scheduled matches without final results are not included in match-performance calculations.
 
 ### Limitations
 
@@ -274,7 +296,7 @@ I'm not trying to build everything at once.
 
 **My goal is to keep learning, keep experimenting, and gradually turn this small personal project into a richer sports analytics platform.**
 
-Version 0.2.3 represents another step in that journey, but there's still so much more I'd love to explore.
+Version 0.3 represents another step in that journey, but there's still so much more I'd love to explore.
 
 ---
 
@@ -290,6 +312,6 @@ Whether it's a feature suggestion, an interesting analytical question, or an ide
 
 ---
 
-**Sports Analytics Lab · Version 0.2.3**
+**Sports Analytics Lab · Version 0.3**
 
-*An independent personal project. Not affiliated with the Premier League or its clubs.*
+*An independent personal project. Not affiliated with any football league or club featured in this application.*
